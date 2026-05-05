@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>Glongnom matcha orders</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #fbb2c9; /* พื้นหลังชมพูพาสเทล */
+      color: #4b2e24;      /* น้ำตาลเข้ม */
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 12px 12px 80px;
+    }
+
+    /* แบนเนอร์ด้านบน */
+    .banner {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    }
+    .banner img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    /* แถบข้อความบน */
+    .top-bar {
+      background: #ffc3d5;
+      border-radius: 999px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+        .close-banner {
+          background: #ffebf2;
+          border-radius: 18px;
+          padding: 10px 14px;
+          margin-bottom: 10px;
+          text-align: center;
+          font-weight: 700;
+          font-size: 1.1rem;
+          color: #7a1f2b;
+          box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+         }
+
+         .close-banner.hidden {
+          display: none;
+         }
+
+    .close-pill {
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 2px solid #4b2e24;
+      color: #4b2e24;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: #ffe1ec;
+    }
+    .close-pill.hidden {
+      display: none;
+    }
+
+    /* layout เมนู / ตะกร้า */
+    .layout {
+      display: grid;
+      grid-template-columns: 2.5fr 1.5fr;
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+    }
+
+    .menu-card {
+      background: #ffd1e0;
+      border-radius: 18px;
+      padding: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border: 2px solid rgba(75,46,36,0.12);
+    }
+
+    .menu-img {
+      width: 100%;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #f9f5f0;
+    }
+    .menu-img img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .menu-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .menu-price {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .qty-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+      align-items: center;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    textarea {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid #e2b7c8;
+      font-size: 0.8rem;
+      color: #4b2e24;
+    }
+
+    .btn {
+      border-radius: 999px;
+      border: 2px solid #4b2e24;
+      background: #4b2e24;
+      color: #ffeef5;
+      font-size: 0.8rem;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .btn.secondary {
+      background: transparent;
+      color: #4b2e24;
+    }
+
+    .btn[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ตะกร้า */
+    .cart-panel {
+      background: #ffe0ec;
+      border-radius: 18px;
+      padding: 10px 12px 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border: 2px solid rgba(75,46,36,0.15);
+    }
+
+    .cart-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+
+    .cart-items {
+      max-height: 220px;
+      overflow-y: auto;
+      margin-bottom: 6px;
+      padding-right: 4px;
+    }
+
+    .cart-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(75,46,36,0.15);
+      font-size: 0.8rem;
+    }
+    .cart-item-main { flex: 1; }
+    .cart-total {
+      text-align: right;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    .small {
+      font-size: 0.75rem;
+    }
+
+    .submit-area {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .danger-note {
+      font-size: 0.7rem;
+      color: #7a1f2b;
+      margin-top: 4px;
+    }
+
+    /* MODAL popup เลือกตัวเลือก */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-backdrop.show {
+      display: flex;
+    }
+    .modal {
+      background: #ffe4ee;
+      border-radius: 18px;
+      padding: 14px 16px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      border: 2px solid rgba(75,46,36,0.25);
+    }
+    .modal-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .modal-sub {
+      font-size: 0.8rem;
+      color: #7a4a52;
+      margin-bottom: 8px;
+    }
+    .modal-group {
+      margin-bottom: 6px;
+    }
+    .modal-group label {
+      display: block;
+      font-size: 0.8rem;
+      margin-bottom: 2px;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid #e2b7c8;
+      font-size: 0.8rem;
+      color: #4b2e24;
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- รูปแบนเนอร์ด้านบน (เปลี่ยน src เป็นรูปของคุณเอง) -->
+    <div class="banner">
+      <img src="assets/banner.jpg" alt="Glongnom matcha banner">
+    </div>
+
+    <!-- แถบข้อความ + close message -->
+    <div class="top-bar">
+      <div>เลือกเมนู ใส่ตัวเลือก และกรอกข้อมูลจัดส่งเพื่อสั่งเครื่องดื่มนะคะ</div>
+            <div id="closeBanner" class="close-banner hidden"></div>
+        </div>
+
+    <div class="layout">
+      <!-- กริดเมนู -->
+      <section>
+        <div class="menu-grid" id="menuGrid"></div>
+      </section>
+
+      <!-- ตะกร้าสินค้า -->
+      <aside class="cart-panel">
+        <div class="cart-title-row">
+          <div style="font-weight:700;">ตะกร้าสินค้า</div>
+          <div id="cartCount" class="small"></div>
+        </div>
+        <div id="cartItems" class="cart-items"></div>
+        <div id="cartTotal" class="cart-total">ยอดรวม: 0 บาท</div>
+
+        <div class="submit-area">
+          <div>
+            <div class="small">ชื่อไลน์ลูกค้า</div>
+            <input id="lineName" placeholder="เช่น glongnom">
+          </div>
+          <div>
+            <div class="small">เบอร์ติดต่อ</div>
+            <input id="phone" placeholder="ใช้ในกรณีจำเป็นเท่านั้น">
+          </div>
+          <div>
+            <div class="small">สถานที่จัดส่ง ตึก/อาคาร</div>
+            <input id="address" placeholder="เช่น ยูบ้าน ตึก A">
+          </div>
+          <button id="submitBtn" class="btn" onclick="submitOrder()">ยืนยันคำสั่งซื้อ</button>
+          <div class="danger-note">
+            * กรุณาตรวจสอบเมนู ตัวเลือก และสถานที่จัดส่งให้ถูกต้องก่อนกดส่ง
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- MODAL เลือกตัวเลือก -->
+  <div id="optionModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-title" id="modalTitle">Matcha Latte</div>
+      <div class="modal-sub" id="modalPrice">75 บาท</div>
+
+      <div id="groupMatchaGrade" class="modal-group">
+        <label>เลือกมัทฉะ</label>
+        <select id="modalGrade">
+          <option value="Medium grade (umami/strength)" data-extra="0">
+            Medium grade (umami/strength)
+          </option>
+          <option value="High grade (umami/smooth/aroma) +10บาท" data-extra="10">
+            High grade (umami/smooth/aroma) +10บาท
+          </option>
+        </select>
+      </div>
+
+      <div id="groupSweetness" class="modal-group">
+        <label>ความหวาน</label>
+        <select id="modalSweetness">
+          <option value="0% (No syrup)">0% (No syrup)</option>
+          <option value="25%">25%</option>
+	  <option value="50%">50%</option>
+          <option value="100%" selected>100%</option>
+          <option value="150%">150%</option>
+        </select>
+      </div>
+
+      <div id="groupMatchaSeparate" class="modal-group">
+        <label>แยกมัทฉะ</label>
+        <select id="modalMatchaSeparate">
+          <option value="แยกมัทฉะใส่ถ้วย">แยกมัทฉะใส่ถ้วย</option>
+          <option value="เทมัทฉะลงแก้ว">เทมัทฉะลงแก้ว</option>
+        </select>
+      </div>
+
+      <div id="groupIceSeparate" class="modal-group">
+        <label>แยกน้ำแข็ง</label>
+        <select id="modalIceSeparate">
+          <option value="แยกน้ำแข็งใส่ถุงซิป">แยกน้ำแข็งใส่ถุงซิป</option>
+          <option value="ใส่น้ำแข็งลงแก้วพร้อมดื่ม">ใส่น้ำแข็งลงแก้วพร้อมดื่ม</option>
+        </select>
+      </div>
+
+      <div class="modal-group">
+        <label>จำนวน</label>
+        <input id="modalQty" type="number" min="1" value="1">
+      </div>
+
+      <div class="modal-group">
+        <label>หมายเหตุ (ต่อเมนูนี้)</label>
+        <input id="modalNote" type="text" placeholder=" ">
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn secondary" onclick="closeModal()">ยกเลิก</button>
+        <button class="btn" onclick="confirmAddToCart()">ยืนยันเพิ่มลงตะกร้า</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- CONFIG ----------
+    const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbypSL4Jg4HKqZKRj4Gw5PJfwK12FuZ_z2Lsp6lIhmi3lYDu91pzqxEmQE8DbPzP9_VP/exec'; // <--- ใส่ URL /exec ของ Apps Script
+
+    let MENU = [];
+    let SETTINGS = {};
+    let SHOP_OPEN = true;
+    let CLOSE_MESSAGE = 'วันนี้ร้านปิดรับออเดอร์ชั่วคราวค่ะ 💕';
+    let cart = [];
+    let currentMenuItem = null;
+
+    // แปลงค่าจากชีทเป็น boolean
+    function boolFromSetting(val, defaultTrue = true) {
+      if (val === undefined || val === null || val === '') return defaultTrue;
+      return String(val).trim().toUpperCase() !== 'FALSE';
+    }
+    function isEnabled(key) {
+      const v = SETTINGS[key];
+      if (v === undefined || v === null || v === '') return true;
+      return String(v).trim().toUpperCase() !== 'FALSE';
+    }
+
+    // แปลงชื่อเมนูเป็นชื่อไฟล์รูปใน assets
+    // เช่น "Matcha Latte" -> "assets/matcha-latte.jpg"
+    function imagePathFromName(name) {
+      const slug = String(name)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')   // แทนอักขระที่ไม่ใช่ a-z0-9 ด้วย -
+        .replace(/^-+|-+$/g, '');      // ตัด - ส่วนเกินหัวท้าย
+      return 'assets/' + slug + '.jpg';  // ถ้าใช้ .png ให้เปลี่ยนตรงนี้
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // โหลดเมนู + settings จาก Apps Script (อ่านจากชีท)
+      fetch(BACKEND_URL)
+        .then(r => r.json())
+        .then(data => {
+          const rawMenu = data.menu || [];
+          SETTINGS = data.settings || {};
+
+          SHOP_OPEN = boolFromSetting(SETTINGS.SHOP_OPEN, true);
+          CLOSE_MESSAGE = SETTINGS.CLOSE_MESSAGE || CLOSE_MESSAGE;
+
+          // map เมนูจาก backend -> ใช้รูปจาก assets ตามชื่อเมนู
+          MENU = rawMenu.map(m => ({
+            id: m.id,
+            name: m.name,
+            price: m.basePrice,
+            image: imagePathFromName(m.name),
+            isMatcha: !!m.isMatcha
+          }));
+
+          if (!SHOP_OPEN) {
+  	    const banner = document.getElementById('closeBanner');
+  	    banner.textContent = CLOSE_MESSAGE;
+  	    banner.classList.remove('hidden');      // โชว์แถบข้อความใหญ่ด้านบน
+
+  	    document.getElementById('submitBtn').disabled = true;
+	  }
+
+          renderMenu();
+          renderCart();
+        })
+        .catch(err => {
+          console.error(err);
+          alert('โหลดเมนูไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+        });
+    });
+
+    function showCloseMessage() {
+      alert(CLOSE_MESSAGE);
+    }
+
+    // ---------- RENDER MENU ----------
+    function renderMenu() {
+      const grid = document.getElementById('menuGrid');
+      grid.innerHTML = '';
+
+      if (MENU.length === 0) {
+        grid.innerHTML = '<div>ยังไม่มีเมนูเปิดขาย</div>';
+        return;
+      }
+
+      MENU.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'menu-card';
+
+        const imgBox = document.createElement('div');
+        imgBox.className = 'menu-img';
+        const img = document.createElement('img');
+        img.src = item.image || 'assets/default-drink.jpg'; // ถ้าไม่มีไฟล์จะใช้รูป default
+        img.alt = item.name;
+        imgBox.appendChild(img);
+        card.appendChild(imgBox);
+
+        const nameRow = document.createElement('div');
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'menu-name';
+        nameSpan.textContent = item.name;
+        nameRow.appendChild(nameSpan);
+       
+        card.appendChild(nameRow);
+
+        const price = document.createElement('div');
+        price.className = 'menu-price';
+        price.textContent = item.price + ' บาท';
+        card.appendChild(price);
+
+        const qtyRow = document.createElement('div');
+        qtyRow.className = 'qty-row';
+
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.min = '1';
+        qtyInput.value = '1';
+        qtyInput.id = 'qty-' + item.id;
+        qtyRow.appendChild(qtyInput);
+
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.textContent = 'เพิ่มลงตะกร้า';
+        btn.disabled = !SHOP_OPEN;
+        btn.onclick = () => openOptionModal(item.id);
+        qtyRow.appendChild(btn);
+
+        card.appendChild(qtyRow);
+        grid.appendChild(card);
+      });
+    }
+
+    // ---------- MODAL ----------
+    function openOptionModal(menuId) {
+      if (!SHOP_OPEN) {
+        alert(CLOSE_MESSAGE);
+        return;
+      }
+      const item = MENU.find(m => m.id === menuId);
+      if (!item) return;
+      currentMenuItem = item;
+
+      document.getElementById('modalTitle').textContent = item.name;
+      document.getElementById('modalPrice').textContent = item.price + ' บาท';
+
+      document.getElementById('modalGrade').selectedIndex = 0;
+      document.getElementById('modalSweetness').value = '100%';
+      document.getElementById('modalMatchaSeparate').value = 'แยกมัทฉะใส่ถ้วย';
+      document.getElementById('modalIceSeparate').value = 'แยกน้ำแข็งใส่ถุงซิป';
+      document.getElementById('modalQty').value =
+        Math.max(1, parseInt(document.getElementById('qty-' + menuId).value) || 1);
+      document.getElementById('modalNote').value = '';
+
+      const showGrade = item.isMatcha && isEnabled('ENABLE_MATCHA_GRADE');
+      const showMatchaSep = item.isMatcha && isEnabled('ENABLE_MATCHA_SEPARATE');
+      const showSweet = isEnabled('ENABLE_SWEETNESS');
+      const showIceSep = isEnabled('ENABLE_ICE_SEPARATE');
+
+      document.getElementById('groupMatchaGrade').style.display   = showGrade ? 'block' : 'none';
+      document.getElementById('groupMatchaSeparate').style.display = showMatchaSep ? 'block' : 'none';
+      document.getElementById('groupSweetness').style.display     = showSweet ? 'block' : 'none';
+      document.getElementById('groupIceSeparate').style.display   = showIceSep ? 'block' : 'none';
+
+      document.getElementById('optionModal').classList.add('show');
+    }
+
+    function closeModal() {
+      document.getElementById('optionModal').classList.remove('show');
+      currentMenuItem = null;
+    }
+
+    function confirmAddToCart() {
+      if (!currentMenuItem) return;
+
+      const qty = Math.max(1, parseInt(document.getElementById('modalQty').value) || 1);
+      const note = document.getElementById('modalNote').value.trim();
+
+      let gradeText = '';
+      let gradeExtra = 0;
+      if (currentMenuItem.isMatcha && isEnabled('ENABLE_MATCHA_GRADE')) {
+        const gradeSel = document.getElementById('modalGrade');
+        gradeText = gradeSel.value;
+        gradeExtra = parseFloat(gradeSel.selectedOptions[0].dataset.extra || '0');
+      }
+
+      let sweetText = '';
+      if (isEnabled('ENABLE_SWEETNESS')) {
+        sweetText = document.getElementById('modalSweetness').value;
+      }
+
+      let matchaSepText = '';
+      if (currentMenuItem.isMatcha && isEnabled('ENABLE_MATCHA_SEPARATE')) {
+        matchaSepText = document.getElementById('modalMatchaSeparate').value;
+      }
+
+      let iceSepText = '';
+      if (isEnabled('ENABLE_ICE_SEPARATE')) {
+        iceSepText = document.getElementById('modalIceSeparate').value;
+      }
+
+      const price = currentMenuItem.price + gradeExtra;
+      const subtotal = price * qty;
+
+      const parts = [];
+      if (gradeText) parts.push('มัทฉะ: ' + gradeText);
+      if (sweetText) parts.push('หวาน: ' + sweetText);
+      if (matchaSepText) parts.push('แยกมัทฉะ: ' + matchaSepText);
+      if (iceSepText) parts.push('น้ำแข็ง: ' + iceSepText);
+      const optionsText = parts.join(' | ');
+
+      cart.push({
+        id: currentMenuItem.id,
+        name: currentMenuItem.name,
+        optionsText,
+        qty,
+        note,
+        price,
+        subtotal
+      });
+
+      closeModal();
+      renderCart();
+    }
+
+    // ---------- CART ----------
+    function renderCart() {
+      const list = document.getElementById('cartItems');
+      const totalEl = document.getElementById('cartTotal');
+      const countEl = document.getElementById('cartCount');
+
+      list.innerHTML = '';
+      if (cart.length === 0) {
+        list.innerHTML = '<div class="small">ยังไม่มีสินค้าในตะกร้า</div>';
+        totalEl.textContent = 'ยอดรวม: 0 บาท';
+        countEl.textContent = '';
+        return;
+      }
+
+      let total = 0;
+      cart.forEach((item, index) => {
+        total += item.subtotal;
+        const row = document.createElement('div');
+        row.className = 'cart-item';
+        row.innerHTML = `
+          <div class="cart-item-main">
+            <div><strong>${item.name}</strong></div>
+            <div class="small">${item.optionsText || '-'}</div>
+            ${item.note ? `<div class="small">หมายเหตุ: ${item.note}</div>` : ''}
+            <div class="small">x${item.qty} • ${item.price}฿</div>
+          </div>
+          <div style="text-align:right;">
+            <div>${item.subtotal}฿</div>
+            <button class="btn secondary" style="margin-top:4px;" onclick="removeFromCart(${index})">ลบ</button>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+
+      totalEl.textContent = 'ยอดรวม: ' + total + ' บาท';
+      countEl.textContent = cart.length + ' รายการ';
+    }
+
+    function removeFromCart(index) {
+      if (index >= 0 && index < cart.length) {
+        cart.splice(index, 1);
+        renderCart();
+      }
+    }
+
+    // ---------- SUBMIT ORDER ----------
+    function submitOrder() {
+      if (!SHOP_OPEN) {
+        alert(CLOSE_MESSAGE);
+        return;
+      }
+      if (cart.length === 0) {
+        alert('กรุณาเลือกเมนูใส่ตะกร้าก่อน');
+        return;
+      }
+
+      const lineName = document.getElementById('lineName').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const address = document.getElementById('address').value.trim();
+
+      if (!lineName) { alert('กรุณากรอกชื่อไลน์ลูกค้า'); return; }
+      if (!phone)    { alert('กรุณากรอกเบอร์ติดต่อ'); return; }
+      if (!address)  { alert('กรุณากรอกสถานที่จัดส่ง ตึก/อาคาร'); return; }
+
+      const total = cart.reduce((sum, item) => sum + item.subtotal, 0);
+      const order = { lineName, phone, address, total, items: cart };
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = 'กำลังส่ง...';
+
+      fetch(BACKEND_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(order)
+      }).then(() => {
+        alert('ส่งคำสั่งซื้อเรียบร้อย! รบกวนทักแชทร้านเพื่อให้ร้านติดต่อกลับนะคะ <3');
+        cart = [];
+        renderCart();
+        btn.disabled = false;
+        btn.textContent = 'ยืนยันคำสั่งซื้อ';
+      }).catch(err => {
+        console.error(err);
+        alert('เกิดข้อผิดพลาดในการส่งคำสั่งซื้อ');
+        btn.disabled = false;
+        btn.textContent = 'ยืนยันคำสั่งซื้อ';
+      });
+    }
+  </script>
+</body>
+</html>
