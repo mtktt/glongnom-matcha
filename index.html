@@ -293,9 +293,16 @@
 
     <!-- แถบข้อความ + close message -->
     <div class="top-bar">
-      <div>เลือกเมนู ใส่ตัวเลือก และกรอกข้อมูลจัดส่งเพื่อสั่งเครื่องดื่มนะคะ</div>
+      <div>เลือกเมนู ใส่ตัวเลือก และกรอกข้อมูลจัดส่งเพื่อสั่งนะคะ</div>
             <div id="closeBanner" class="close-banner hidden"></div>
         </div>
+
+    <div class="category-bar" style="display:flex; gap:8px; margin-bottom:10px;">
+      <button id="cat-all" class="btn secondary" onclick="setCategory('all')">All</button>
+      <button id="cat-matcha" class="btn secondary" onclick="setCategory('matcha')">Matcha</button>
+      <button id="cat-non" class="btn secondary" onclick="setCategory('non-matcha')">Non-Matcha</button>
+      <button id="cat-rice" class="btn secondary" onclick="setCategory('rice')">Rice Bowl</button>
+    </div>
 
     <div class="layout">
       <!-- กริดเมนู -->
@@ -379,6 +386,24 @@
         </select>
       </div>
 
+      <!-- ===== RICE OPTIONS ===== -->
+      <div id="groupRiceSauce" class="modal-group" style="display:none;">
+        <label>เลือกซอส</label>
+        <select id="modalSauce">
+          <option value="Garlic shoyu">Garlic shoyu</option>
+          <option value="BBQ sauce">BBQ sauce</option>
+        </select>
+      </div>
+
+      <div id="groupRiceExtra" class="modal-group" style="display:none;">
+        <label>เลือกเพิ่ม</label>
+        <div class="small">
+          <label><input type="checkbox" value="เพิ่มสาหร่ายโรยข้าว +10"> เพิ่มสาหร่ายโรยข้าว +10 บาท</label><br>
+          <label><input type="checkbox" value="เพิ่มซุปมิโซะ +10"> เพิ่มซุปมิโซะ +10 บาท</label><br>
+          <label><input type="checkbox" value="เพิ่มสลัด +10"> เพิ่มสลัด +10 บาท</label>
+        </div>
+      </div>
+
       <div class="modal-group">
         <label>จำนวน</label>
         <input id="modalQty" type="number" min="1" value="1">
@@ -403,6 +428,7 @@
     let MENU = [];
     let SETTINGS = {};
     let SHOP_OPEN = true;
+    let currentCategory = 'all';
     let CLOSE_MESSAGE = 'วันนี้ร้านปิดรับออเดอร์ชั่วคราวค่ะ 💕';
     let cart = [];
     let currentMenuItem = null;
@@ -421,6 +447,9 @@
     // แปลงชื่อเมนูเป็นชื่อไฟล์รูปใน assets
     // เช่น "Matcha Latte" -> "assets/matcha-latte.jpg"
     function imagePathFromName(name) {
+      if (/ข้าวหมูนู่มมม/.test(name)) return 'assets/moo-numm-rice.jpg';
+      if (/ข้าวเนื้อยุ่งงง/.test(name)) return 'assets/beef-numm-rice.jpg';
+      
       const slug = String(name)
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')   // แทนอักขระที่ไม่ใช่ a-z0-9 ด้วย -
@@ -445,7 +474,8 @@
             name: m.name,
             price: m.basePrice,
             image: imagePathFromName(m.name),
-            isMatcha: !!m.isMatcha
+            isMatcha: !!m.isMatcha,
+	    isRice: /ข้าว/.test(m.name)
           }));
 
           if (!SHOP_OPEN) {
@@ -457,6 +487,7 @@
 	  }
 
           renderMenu();
+          setCategory('all');
           renderCart();
         })
         .catch(err => {
@@ -469,6 +500,24 @@
       alert(CLOSE_MESSAGE);
     }
 
+    function setCategory(cat) {
+      currentCategory = cat;
+
+      document.querySelectorAll('.category-bar .btn')
+        .forEach(btn => btn.style.opacity = '0.5');
+
+      const activeBtn = {
+        'all': 'cat-all',
+        'matcha': 'cat-matcha',
+        'non-matcha': 'cat-non',
+        'rice': 'cat-rice'
+      };
+
+      document.getElementById(activeBtn[cat]).style.opacity = '1';
+
+      renderMenu();
+    }
+
     // ---------- RENDER MENU ----------
     function renderMenu() {
       const grid = document.getElementById('menuGrid');
@@ -479,13 +528,21 @@
         return;
       }
 
-      MENU.forEach(item => {
+      MENU
+        .filter(item => {
+          if (currentCategory === 'all') return true;
+          if (currentCategory === 'matcha') return item.isMatcha;
+          if (currentCategory === 'non-matcha') return !item.isMatcha && !item.isRice;
+          if (currentCategory === 'rice') return item.isRice;
+        })
+        .forEach(item => {
         const card = document.createElement('div');
         card.className = 'menu-card';
 
         const imgBox = document.createElement('div');
         imgBox.className = 'menu-img';
         const img = document.createElement('img');
+        img.loading = 'lazy';
         img.src = item.image || 'assets/default-drink.jpg'; // ถ้าไม่มีไฟล์จะใช้รูป default
         img.alt = item.name;
         imgBox.appendChild(img);
@@ -547,11 +604,19 @@
         Math.max(1, parseInt(document.getElementById('qty-' + menuId).value) || 1);
       document.getElementById('modalNote').value = '';
 
-      const showGrade = item.isMatcha && isEnabled('ENABLE_MATCHA_GRADE');
-      const showMatchaSep = item.isMatcha && isEnabled('ENABLE_MATCHA_SEPARATE');
-      const showSweet = isEnabled('ENABLE_SWEETNESS');
-      const showIceSep = isEnabled('ENABLE_ICE_SEPARATE');
+      const isRice = item.isRice;
 
+      const showGrade = item.isMatcha && isEnabled('ENABLE_MATCHA_GRADE') && !isRice;
+      const showMatchaSep = item.isMatcha && isEnabled('ENABLE_MATCHA_SEPARATE') && !isRice;
+      const showSweet = isEnabled('ENABLE_SWEETNESS') && !isRice;
+      const showIceSep = isEnabled('ENABLE_ICE_SEPARATE') && !isRice;
+      const showRice = item.isRice;
+
+      document.getElementById('groupRiceSauce').style.display = showRice ? 'block' : 'none';
+      document.getElementById('groupRiceExtra').style.display = showRice ? 'block' : 'none';
+      document.getElementById('modalSauce').value = 'Garlic shoyu';
+      document.querySelectorAll('#groupRiceExtra input[type=checkbox]')
+        .forEach(cb => cb.checked = false);
       document.getElementById('groupMatchaGrade').style.display   = showGrade ? 'block' : 'none';
       document.getElementById('groupMatchaSeparate').style.display = showMatchaSep ? 'block' : 'none';
       document.getElementById('groupSweetness').style.display     = showSweet ? 'block' : 'none';
@@ -580,7 +645,7 @@
       }
 
       let sweetText = '';
-      if (isEnabled('ENABLE_SWEETNESS')) {
+      if (!currentMenuItem.isRice && isEnabled('ENABLE_SWEETNESS')) {
         sweetText = document.getElementById('modalSweetness').value;
       }
 
@@ -590,11 +655,26 @@
       }
 
       let iceSepText = '';
-      if (isEnabled('ENABLE_ICE_SEPARATE')) {
+      if (!currentMenuItem.isRice && isEnabled('ENABLE_ICE_SEPARATE')) {
         iceSepText = document.getElementById('modalIceSeparate').value;
       }
+      
+      // ===== RICE OPTIONS =====
+      let riceSauce = '';
+      let riceExtras = [];
+      let riceExtraPrice = 0;
 
-      const price = currentMenuItem.price + gradeExtra;
+      if (currentMenuItem.isRice) {
+        riceSauce = document.getElementById('modalSauce').value;
+
+        document.querySelectorAll('#groupRiceExtra input[type=checkbox]:checked')
+          .forEach(cb => {
+            riceExtras.push(cb.value);
+            riceExtraPrice += 10;
+          });
+      }
+
+      const price = currentMenuItem.price + gradeExtra + riceExtraPrice;
       const subtotal = price * qty;
 
       const parts = [];
@@ -602,6 +682,9 @@
       if (sweetText) parts.push('หวาน: ' + sweetText);
       if (matchaSepText) parts.push('แยกมัทฉะ: ' + matchaSepText);
       if (iceSepText) parts.push('น้ำแข็ง: ' + iceSepText);
+      // ===== RICE OPTIONS TEXT =====
+      if (riceSauce) parts.push('ซอส: ' + riceSauce);
+      if (riceExtras.length) parts.push('เพิ่ม: ' + riceExtras.join(', '));
       const optionsText = parts.join(' | ');
 
       cart.push({
