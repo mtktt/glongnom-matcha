@@ -2,794 +2,2256 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>Glongnom matcha orders</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glongnom — Order</title>
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- ============================================================
+       STYLES
+  ============================================================ -->
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #FFF8F0;
+  --pink-fill:    #FFD6E0;
+      --surface:      #fefefe;
+      --surface-warm: #FDF4EC;
+      --pink-accent:  #F2B8C6;
+      --pink-soft:    #FDEEF3;
+      --pink-deep:    #FF85A1;
+      --brown-dark:   #3D1C02;
+      --brown-mid:    #5C2D0E;
+      --brown-light:  #8B4513;
+      --text-primary: #3D1C02;
+      --text-secondary: #7A4928;
+      --text-muted:   #A07050;
+      --border:       rgba(61,28,2,0.12);
+      --error:        #C0392B;
+      --error-light:  #FFEBEE;
+      --shadow-xs:    0 1px 3px rgba(61,28,2,0.06);
+      --shadow-sm:    0 2px 8px rgba(61,28,2,0.10);
+      --shadow-md:    0 4px 16px rgba(61,28,2,0.14);
+      --shadow-lg:    0 8px 28px rgba(61,28,2,0.18);
+      --radius-sm:    10px;
+      --radius-md:    16px;
+      --radius-lg:    22px;
+      --radius-pill:  999px;
+    }
+
+    html { scroll-behavior: smooth; }
 
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #fbb2c9; /* พื้นหลังชมพูพาสเทล */
-      color: #4b2e24;      /* น้ำตาลเข้ม */
+      font-family: 'Sarabun', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--brown-dark);
       min-height: 100vh;
     }
 
+    /* ── Honeypot (spam protection) ── */
+    .hp-field {
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* ── Loading spinner overlay ── */
+    #loadingOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255,248,240,0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      gap: 16px;
+    }
+    #loadingOverlay.hidden { display: none; }
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 5px solid var(--border);
+      border-top-color: var(--brown-mid);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--brown-mid);
+    }
+
+    /* ── Language toggle (inside hero-right) ── */
+    #langToggle {
+      background: var(--surface);
+      color: var(--text-secondary);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-pill);
+      padding: 5px 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      box-shadow: var(--shadow-xs);
+      transition: background 0.18s;
+      white-space: nowrap;
+    }
+    #langToggle:hover { background: var(--surface-warm); }
+
+    /* ── Hero ── */
+    .hero {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 24px;
+    }
+    .hero-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .hero-shop-name {
+      font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+      font-weight: 800;
+      color: var(--brown-dark);
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+    .hero-divider {
+      width: 40px;
+      height: 2px;
+      background: var(--pink-accent);
+      border-radius: 2px;
+      margin: 6px 0;
+    }
+    .hero-tagline {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .hero-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--text-secondary);
+      border-radius: var(--radius-pill);
+      padding: 5px 14px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .hero-badge::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #52B788;
+      flex-shrink: 0;
+    }
+    .hero-badge.closed {
+      border-color: rgba(192,57,43,0.35);
+      color: var(--error);
+    }
+    .hero-badge.closed::before {
+      background: var(--error);
+    }
+    @media (max-width: 500px) {
+      .hero { padding: 16px 16px; }
+      .hero-shop-name { font-size: clamp(1.4rem, 6vw, 1.8rem); }
+      .hero-tagline { letter-spacing: 0.06em; }
+    }
+
+
+    /* ── Close banner ── */
+    #closeBanner {
+      background: var(--error-light);
+      border: 1.5px solid rgba(192,57,43,0.35);
+      border-radius: var(--radius-md);
+      padding: 12px 20px;
+      margin: 12px auto;
+      max-width: 700px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--error);
+      box-shadow: var(--shadow-sm);
+    }
+    #closeBanner.hidden { display: none; }
+
+    /* ── Main page wrapper ── */
     .page {
       max-width: 1100px;
       margin: 0 auto;
-      padding: 12px 12px 80px;
+      padding: 16px 16px 160px;
     }
 
-    /* แบนเนอร์ด้านบน */
-    .banner {
-      width: 100%;
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 10px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-    }
-    .banner img {
-      width: 100%;
-      display: block;
-      object-fit: cover;
-    }
-
-    /* แถบข้อความบน */
-    .top-bar {
-      background: #ffc3d5;
-      border-radius: 999px;
-      padding: 8px 16px;
+    /* ── Category tabs ── */
+    .category-bar {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-      font-size: 0.9rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
     }
-        .close-banner {
-          background: #ffebf2;
-          border-radius: 18px;
-          padding: 10px 14px;
-          margin-bottom: 10px;
-          text-align: center;
-          font-weight: 700;
-          font-size: 1.1rem;
-          color: #7a1f2b;
-          box-shadow: 0 3px 8px rgba(0,0,0,0.12);
-         }
-
-         .close-banner.hidden {
-          display: none;
-         }
-
-    .close-pill {
-      padding: 4px 12px;
-      border-radius: 999px;
-      border: 2px solid #4b2e24;
-      color: #4b2e24;
+    .cat-btn {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-pill);
+      padding: 8px 20px;
+      font-size: 0.88rem;
       font-weight: 600;
       cursor: pointer;
-      font-size: 0.8rem;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      background: #ffe1ec;
+      transition: background 0.18s, color 0.18s, border-color 0.18s;
+      background: var(--surface);
+      color: var(--text-secondary);
     }
-    .close-pill.hidden {
-      display: none;
+    .cat-btn.active {
+      background: var(--brown-dark);
+      color: var(--bg);
+      border-color: var(--brown-dark);
     }
+    .cat-btn:hover:not(.active) { background: var(--surface-warm); }
 
-    /* layout เมนู / ตะกร้า */
+    /* ── Layout: menu grid + cart ── */
     .layout {
       display: grid;
-      grid-template-columns: 2.5fr 1.5fr;
-      gap: 16px;
-      margin-top: 8px;
+      grid-template-columns: 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+    @media (min-width: 861px) {
+      .layout { grid-template-columns: 2.4fr 1.6fr; }
+      .cart-panel { position: sticky; top: 18px; }
     }
 
-    @media (max-width: 900px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-    }
-
+    /* ── Menu grid ── */
     .menu-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px;
     }
 
+    /* ── Menu card ── */
     .menu-card {
-      background: #ffd1e0;
-      border-radius: 18px;
-      padding: 8px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+      background: var(--surface-warm);
+      border-radius: var(--radius-lg);
+      padding: 12px;
+      box-shadow: var(--shadow-md);
       display: flex;
       flex-direction: column;
       gap: 6px;
-      border: 2px solid rgba(75,46,36,0.12);
+      border: 1.5px solid var(--border);
+      transition: transform 0.22s ease-out, box-shadow 0.22s ease-out;
+      cursor: pointer;
+    }
+    .menu-card:hover:not(.sold-out) {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-lg);
+    }
+    .menu-card.sold-out {
+      opacity: 0.5;
+      cursor: default;
+      filter: grayscale(40%);
     }
 
-    .menu-img {
+    .menu-img-wrap {
       width: 100%;
-      border-radius: 14px;
+      border-radius: var(--radius-md);
       overflow: hidden;
-      background: #f9f5f0;
+      background: var(--surface-warm);
+      aspect-ratio: 1 / 1;
+      position: relative;
     }
-    .menu-img img {
+    .menu-img-wrap img {
       width: 100%;
+      height: 100%;
       display: block;
       object-fit: cover;
     }
+    .sold-out-badge {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(61,28,2,0.55);
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-md);
+    }
+    .menu-card.sold-out .sold-out-badge { display: flex; }
+    .sold-out-badge span {
+      background: var(--bg);
+      color: var(--brown-dark);
+      font-weight: 700;
+      font-size: 0.75rem;
+      border-radius: var(--radius-pill);
+      padding: 4px 10px;
+      text-align: center;
+    }
 
     .menu-name {
-      font-size: 0.9rem;
-      font-weight: 600;
-      margin-top: 4px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .menu-desc {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      line-height: 1.4;
     }
     .menu-price {
-      font-size: 0.85rem;
-      font-weight: 600;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--brown-mid);
     }
-
-    .qty-row {
-      display: flex;
-      gap: 6px;
-      margin-top: 4px;
-      align-items: center;
-    }
-
-    input[type="number"],
-    input[type="text"],
-    textarea {
-      width: 100%;
-      padding: 6px 8px;
-      border-radius: 10px;
-      border: 1px solid #e2b7c8;
-      font-size: 0.8rem;
-      color: #4b2e24;
-    }
-
-    .btn {
-      border-radius: 999px;
-      border: 2px solid #4b2e24;
-      background: #4b2e24;
-      color: #ffeef5;
-      font-size: 0.8rem;
-      padding: 6px 10px;
+    .menu-add-btn {
+      border: none;
+      border-radius: var(--radius-pill);
+      background: var(--brown-dark);
+      color: var(--bg);
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 7px 0;
       cursor: pointer;
-      font-weight: 600;
-      white-space: nowrap;
+      width: 100%;
+      margin-top: auto;
+      transition: background 0.15s;
     }
-
-    .btn.secondary {
-      background: transparent;
-      color: #4b2e24;
-    }
-
-    .btn[disabled] {
-      opacity: 0.5;
+    .menu-add-btn:hover:not(:disabled) { background: var(--brown-mid); }
+    .menu-add-btn:disabled {
+      opacity: 0.45;
       cursor: not-allowed;
     }
 
-    /* ตะกร้า */
+    /* ── Cart panel (desktop sidebar) ── */
     .cart-panel {
-      background: #ffe0ec;
-      border-radius: 18px;
-      padding: 10px 12px 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      border: 2px solid rgba(75,46,36,0.15);
+      background: var(--surface-warm);
+      border-radius: var(--radius-lg);
+      padding: 16px 14px 18px;
+      box-shadow: var(--shadow-md);
+      border: 1.5px solid var(--border);
     }
-
-    .cart-title-row {
+    .cart-header {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
-
-    .cart-items {
-      max-height: 220px;
+    .cart-header-title {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .cart-count-label {
+      font-size: 0.75rem;
+      color: var(--brown-mid);
+    }
+    .cart-items-list {
+      max-height: 240px;
       overflow-y: auto;
-      margin-bottom: 6px;
-      padding-right: 4px;
+      margin-bottom: 10px;
+      padding-right: 2px;
     }
-
     .cart-item {
       display: flex;
       justify-content: space-between;
       gap: 8px;
-      padding: 4px 0;
-      border-bottom: 1px solid rgba(75,46,36,0.15);
+      padding: 12px;
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 8px;
+      align-items: flex-start;
       font-size: 0.8rem;
     }
     .cart-item-main { flex: 1; }
-    .cart-total {
-      text-align: right;
-      font-weight: 700;
+    .cart-item-name { font-weight: 700; }
+    .cart-item-opts { font-size: 0.7rem; color: var(--brown-light); }
+    .cart-item-note { font-size: 0.7rem; color: var(--brown-mid); font-style: italic; }
+    .cart-item-qty  { font-size: 0.72rem; color: var(--brown-mid); margin-top: 2px; }
+    .cart-item-right { text-align: right; white-space: nowrap; }
+    .cart-item-subtotal { font-weight: 700; font-size: 0.85rem; }
+    .cart-remove-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 0;
       margin-top: 4px;
+      font-family: inherit;
+    }
+    .cart-remove-btn:hover { color: var(--error); }
+    .cart-empty-note {
+      font-size: 0.8rem;
+      color: var(--brown-light);
+      padding: 8px 0;
+    }
+    .cart-total-row {
+      background: var(--surface-warm);
+      border-top: 1px solid var(--border);
+      border-radius: 0;
+      padding: 12px 14px;
+      text-align: right;
+      font-weight: 800;
+      font-size: 0.95rem;
+      margin-bottom: 12px;
     }
 
-    .small {
-      font-size: 0.75rem;
+    /* Checkout button inside cart panel (desktop) */
+    .cart-checkout-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: var(--radius-pill);
+      background: var(--brown-dark);
+      color: var(--bg);
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-family: inherit;
+    }
+    .cart-checkout-btn:hover { background: var(--brown-mid); }
+
+    /* Hide cart panel on mobile; show FAB instead */
+    @media (max-width: 860px) {
+      .cart-panel { display: none; }
     }
 
-    .submit-area {
-      margin-top: 8px;
+    /* ── Cart FAB (mobile only) ── */
+    .cart-fab {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--brown-dark);
+      color: var(--bg);
+      border: none;
+      border-radius: var(--radius-pill);
+      padding: 14px 28px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: var(--shadow-lg);
+      z-index: 900;
+      white-space: nowrap;
+      font-family: inherit;
+      transition: background 0.15s, transform 0.15s;
+    }
+    .cart-fab:hover { background: var(--brown-mid); }
+    @media (max-width: 860px) {
+      .cart-fab { display: block; }
+    }
+
+    /* ── Cart bottom sheet (mobile) ── */
+    .cart-sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0);
       display: flex;
-      flex-direction: column;
-      gap: 6px;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 1050;
+      visibility: hidden;
+      pointer-events: none;
+      transition: background 0.3s ease, visibility 0.3s;
     }
+    .cart-sheet-backdrop.show {
+      background: rgba(0,0,0,0.48);
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .cart-sheet {
+      background: var(--surface-warm);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: 20px 18px 36px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 -6px 32px rgba(61,28,2,0.22);
+      border: 1.5px solid var(--border);
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+    }
+    .cart-sheet-backdrop.show .cart-sheet {
+      transform: translateY(0);
+    }
+    .cart-sheet::before {
+      content: '';
+      display: block;
+      width: 36px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 0 auto 16px;
+    }
+    .cart-sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .cart-sheet-title {
+      font-weight: 800;
+      font-size: 1.05rem;
+    }
+    .sheet-close-btn, .drawer-close-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .sheet-close-btn:hover, .drawer-close-btn:hover { background: var(--surface-warm); }
+    .cart-sheet-checkout-btn {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: var(--radius-pill);
+      background: var(--brown-dark);
+      color: var(--bg);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 14px;
+      transition: background 0.15s;
+      font-family: inherit;
+    }
+    .cart-sheet-checkout-btn:hover { background: var(--brown-mid); }
+
+    /* ── Checkout form ── */
+    .form-field { margin-bottom: 12px; }
+    .form-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--brown-mid);
+    }
+    .form-input {
+      width: 100%;
+      padding: 10px 13px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: rgba(255,255,255,0.6);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      font-size: 0.88rem;
+      color: var(--brown-dark);
+      box-shadow: var(--shadow-xs);
+      transition: border-color 0.15s, box-shadow 0.15s;
+      font-family: inherit;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--pink-deep);
+      box-shadow: 0 0 0 3px rgba(255,133,161,0.18);
+    }
+    .form-input.error {
+      border-color: #e53935;
+      box-shadow: 0 0 0 3px rgba(229,57,53,0.14);
+    }
+    .field-error {
+      font-size: 0.72rem;
+      color: #C0392B;
+      margin-top: 3px;
+      display: none;
+    }
+    .field-error.show { display: block; }
+
+    /* ── Submit button ── */
+    .submit-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: var(--radius-pill);
+      background: var(--brown-dark);
+      color: var(--bg);
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: background 0.15s;
+      font-family: inherit;
+    }
+    .submit-btn:hover:not(:disabled) { background: var(--brown-mid); }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .danger-note {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       color: #7a1f2b;
-      margin-top: 4px;
+      margin-top: 6px;
     }
 
-    /* MODAL popup เลือกตัวเลือก */
+    /* ── Error message banner ── */
+    #submitErrorMsg {
+      display: none;
+      background: #FFEBEE;
+      border: 1.5px solid #EF9A9A;
+      border-radius: var(--radius-sm);
+      padding: 10px 13px;
+      font-size: 0.8rem;
+      color: #B71C1C;
+      margin-top: 8px;
+    }
+    #submitErrorMsg.show { display: block; }
+
+    /* ── Checkout slide-over drawer ── */
+    .checkout-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.48);
+      z-index: 1150;
+    }
+    .checkout-overlay.open { display: block; }
+
+    .checkout-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 100%;
+      max-width: 420px;
+      height: 100%;
+      background: var(--surface-warm);
+      box-shadow: -6px 0 32px rgba(61,28,2,0.20);
+      border-left: 1.5px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      z-index: 1160;
+      overflow: hidden;
+    }
+    .checkout-drawer.open { transform: translateX(0); }
+
+    @media (max-width: 860px) {
+      .checkout-drawer {
+        top: auto;
+        bottom: 0;
+        right: 0;
+        left: 0;
+        max-width: 100%;
+        width: 100%;
+        height: auto;
+        max-height: 92vh;
+        border-left: none;
+        border-top: 1.5px solid var(--border);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        box-shadow: 0 -6px 32px rgba(61,28,2,0.22);
+        transform: translateY(100%);
+      }
+      .checkout-drawer.open { transform: translateY(0); }
+    }
+
+    .checkout-drawer-inner {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 20px 36px;
+    }
+
+    .checkout-drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .checkout-drawer-title {
+      font-weight: 800;
+      font-size: 1.05rem;
+    }
+    .checkout-close-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .checkout-close-btn:hover { background: var(--surface-warm); }
+
+    /* Order summary section inside drawer */
+    .drawer-summary {
+      background: var(--surface);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 0.82rem;
+    }
+    .drawer-summary-title {
+      font-weight: 700;
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+      color: var(--brown-mid);
+    }
+    .drawer-summary-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .drawer-summary-total {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 800;
+      font-size: 0.95rem;
+      border-top: 1.5px solid rgba(92,45,14,0.15);
+      margin-top: 6px;
+      padding-top: 6px;
+    }
+
+    /* ── MODAL ── */
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.45);
-      display: none;
-      align-items: center;
+      background: rgba(0,0,0,0);
+      display: flex;
+      align-items: flex-end;
       justify-content: center;
-      z-index: 1000;
+      z-index: 1100;
+      padding: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: background 0.28s ease, visibility 0.28s;
     }
     .modal-backdrop.show {
-      display: flex;
+      background: rgba(0,0,0,0.48);
+      visibility: visible;
+      pointer-events: auto;
     }
+    @media (min-width: 600px) {
+      .modal-backdrop { align-items: center; }
+    }
+
     .modal {
-      background: #ffe4ee;
-      border-radius: 18px;
-      padding: 14px 16px;
+      background: var(--surface);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: 24px 22px 32px;
       width: 100%;
-      max-width: 380px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-      border: 2px solid rgba(75,46,36,0.25);
+      max-width: 440px;
+      box-shadow: 0 -6px 32px rgba(61,28,2,0.18);
+      border: 1.5px solid var(--border);
+      max-height: 90vh;
+      overflow-y: auto;
+      transform: translateY(100%);
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.25s ease;
     }
-    .modal-title {
-      font-size: 1rem;
-      font-weight: 700;
-      margin-bottom: 4px;
+    .modal-backdrop.show .modal {
+      transform: translateY(0);
+      opacity: 1;
     }
-    .modal-sub {
-      font-size: 0.8rem;
-      color: #7a4a52;
-      margin-bottom: 8px;
+    @media (min-width: 600px) {
+      .modal {
+        border-radius: var(--radius-lg);
+        max-height: 88vh;
+        transform: scale(0.95) translateY(12px);
+      }
+      .modal-backdrop.show .modal {
+        transform: scale(1) translateY(0);
+      }
     }
-    .modal-group {
-      margin-bottom: 6px;
-    }
-    .modal-group label {
-      display: block;
-      font-size: 0.8rem;
+
+    .modal-item-name {
+      font-size: 1.1rem;
+      font-weight: 800;
       margin-bottom: 2px;
     }
+    .modal-base-price {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+    .modal-group {
+      margin-bottom: 14px;
+    }
+    .modal-group-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .modal-group-label .req-star {
+      color: #C0392B;
+      margin-left: 2px;
+    }
+
+    /* Chip / pill option buttons */
+    .chip-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-pill);
+      padding: 7px 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--surface);
+      color: var(--brown-dark);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      font-family: inherit;
+    }
+    .chip.selected {
+      background: var(--brown-dark);
+      color: var(--bg);
+      border-color: var(--brown-dark);
+    }
+    .chip:hover:not(.selected) { background: var(--surface-warm); }
+    .chip.selected:hover { background: var(--brown-mid); }
+    .chip-extra {
+      font-size: 0.72rem;
+      opacity: 0.9;
+    }
+
+    /* Multi-select chips (add-ons) */
+    .chip.multi.selected {
+      background: var(--brown-mid);
+      color: var(--bg);
+    }
+
+    /* Qty row */
+    .qty-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .qty-btn {
+      width: 34px;
+      height: 34px;
+      border: 2px solid var(--brown-dark);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--brown-dark);
+      font-size: 1.2rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .qty-btn:hover { background: var(--surface-warm); }
+    .qty-value {
+      font-size: 1rem;
+      font-weight: 700;
+      min-width: 28px;
+      text-align: center;
+    }
+
+    /* Live price in modal */
+    .modal-live-price {
+      background: rgba(61,28,2,0.07);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      text-align: right;
+      font-weight: 800;
+      font-size: 1rem;
+      margin: 12px 0 8px;
+      color: var(--brown-dark);
+      letter-spacing: 0.01em;
+    }
+    .modal-live-price span { font-size: 0.78rem; font-weight: 500; }
+
+    .modal-note-input {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: rgba(255,255,255,0.6);
+      font-size: 0.85rem;
+      color: var(--brown-dark);
+      font-family: inherit;
+    }
+    .modal-note-input:focus {
+      outline: none;
+      border-color: var(--pink-deep);
+    }
+
     .modal-actions {
       display: flex;
       justify-content: flex-end;
-      gap: 8px;
-      margin-top: 8px;
+      gap: 10px;
+      margin-top: 14px;
     }
-    select {
+    .modal-cancel-btn {
+      border: 2px solid var(--brown-dark);
+      border-radius: var(--radius-pill);
+      background: transparent;
+      color: var(--brown-dark);
+      padding: 9px 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .modal-confirm-btn {
+      border: none;
+      border-radius: var(--radius-pill);
+      background: var(--brown-dark);
+      color: var(--bg);
+      padding: 9px 22px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .modal-confirm-btn:hover { background: var(--brown-mid); }
+
+    /* ── Order confirmation screen ── */
+    #confirmationScreen {
+      display: none;
+      max-width: 540px;
+      margin: 32px auto;
+    }
+    #confirmationScreen.show { display: block; }
+    .confirm-card {
+      background: var(--surface-warm);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      box-shadow: var(--shadow-lg);
+      border: 1.5px solid var(--border);
+      text-align: center;
+    }
+    .confirm-icon { font-size: 3rem; margin-bottom: 8px; }
+    .confirm-title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--brown-dark);
+      margin-bottom: 4px;
+    }
+    .confirm-order-id {
+      font-size: 0.85rem;
+      color: var(--brown-light);
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+    .confirm-customer-row {
+      background: var(--surface);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      text-align: left;
+      margin-bottom: 14px;
+      font-size: 0.85rem;
+    }
+    .confirm-customer-row strong { font-weight: 700; }
+    .confirm-items-table {
       width: 100%;
-      padding: 6px 8px;
-      border-radius: 10px;
-      border: 1px solid #e2b7c8;
-      font-size: 0.8rem;
-      color: #4b2e24;
-      background: #fff;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      font-size: 0.82rem;
     }
+    .confirm-items-table th {
+      border-bottom: 1.5px solid var(--border);
+      padding: 6px 8px;
+      text-align: left;
+      font-weight: 700;
+      color: var(--brown-mid);
+    }
+    .confirm-items-table td {
+      padding: 7px 8px;
+      border-bottom: 1px solid rgba(61,28,2,0.06);
+      text-align: left;
+      vertical-align: top;
+    }
+    .confirm-items-table td:last-child { text-align: right; font-weight: 600; }
+    .confirm-total-row {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 800;
+      font-size: 1rem;
+      padding: 10px 8px 0;
+      border-top: 2px solid var(--brown-dark);
+    }
+    .confirm-thankyou {
+      margin-top: 20px;
+      font-size: 0.88rem;
+      color: var(--brown-mid);
+      line-height: 1.6;
+    }
+    .confirm-new-order-btn {
+      margin-top: 18px;
+      border: none;
+      border-radius: var(--radius-pill);
+      background: var(--brown-dark);
+      color: var(--bg);
+      padding: 11px 28px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .confirm-new-order-btn:hover { background: var(--brown-mid); }
+
+    /* ── Toast notification ── */
+    #toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--brown-dark);
+      color: var(--bg);
+      border-radius: var(--radius-pill);
+      padding: 10px 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.22s ease;
+      z-index: 2000;
+      white-space: nowrap;
+      max-width: 90vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      box-shadow: var(--shadow-md);
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    @media (min-width: 861px) {
+      #toast { bottom: 32px; }
+    }
+
+    /* ── Utility ── */
+    .hidden { display: none !important; }
+    .mt8 { margin-top: 8px; }
   </style>
 </head>
 <body>
-  <div class="page">
-    <!-- รูปแบนเนอร์ด้านบน (เปลี่ยน src เป็นรูปของคุณเอง) -->
-    <div class="banner">
-      <img src="assets/banner.jpg" alt="Glongnom matcha banner">
+
+<!-- Loading overlay -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="spinner-label" id="loadingLabel">กำลังโหลดเมนู...</div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-left">
+      <div class="hero-shop-name" id="heroShopName">Glongnom</div>
+      <div class="hero-divider"></div>
+      <div class="hero-tagline" id="heroTagline">มัทฉะคราฟท์สดใหม่ ส่งถึงมือคุณ</div>
     </div>
-
-    <!-- แถบข้อความ + close message -->
-    <div class="top-bar">
-      <div>เลือกเมนู ใส่ตัวเลือก และกรอกข้อมูลจัดส่งเพื่อสั่งนะคะ</div>
-            <div id="closeBanner" class="close-banner hidden"></div>
-        </div>
-
-    <div class="category-bar" style="display:flex; gap:8px; margin-bottom:10px;">
-      <button id="cat-all" class="btn secondary" onclick="setCategory('all')">All</button>
-      <button id="cat-matcha" class="btn secondary" onclick="setCategory('matcha')">Matcha</button>
-      <button id="cat-non" class="btn secondary" onclick="setCategory('non-matcha')">Non-Matcha</button>
-      <button id="cat-rice" class="btn secondary" onclick="setCategory('rice')">Rice Bowl</button>
-    </div>
-
-    <div class="layout">
-      <!-- กริดเมนู -->
-      <section>
-        <div class="menu-grid" id="menuGrid"></div>
-      </section>
-
-      <!-- ตะกร้าสินค้า -->
-      <aside class="cart-panel">
-        <div class="cart-title-row">
-          <div style="font-weight:700;">ตะกร้าสินค้า</div>
-          <div id="cartCount" class="small"></div>
-        </div>
-        <div id="cartItems" class="cart-items"></div>
-        <div id="cartTotal" class="cart-total">ยอดรวม: 0 บาท</div>
-
-        <div class="submit-area">
-          <div>
-            <div class="small">ชื่อไลน์ลูกค้า</div>
-            <input id="lineName" placeholder="เช่น glongnom">
-          </div>
-          <div>
-            <div class="small">เบอร์ติดต่อ</div>
-            <input id="phone" placeholder="ใช้ในกรณีจำเป็นเท่านั้น">
-          </div>
-          <div>
-            <div class="small">สถานที่จัดส่ง ตึก/อาคาร</div>
-            <input id="address" placeholder="เช่น ยูบ้าน ตึก A">
-          </div>
-          <button id="submitBtn" class="btn" onclick="submitOrder()">ยืนยันคำสั่งซื้อ</button>
-          <div class="danger-note">
-            * กรุณาตรวจสอบเมนู ตัวเลือก และสถานที่จัดส่งให้ถูกต้องก่อนกดส่ง
-          </div>
-        </div>
-      </aside>
+    <div class="hero-right">
+      <div class="hero-badge" id="heroBadge" style="display:none;"></div>
+      <button id="langToggle" onclick="toggleLang()">TH | EN</button>
     </div>
   </div>
+</div>
 
-  <!-- MODAL เลือกตัวเลือก -->
-  <div id="optionModal" class="modal-backdrop">
-    <div class="modal">
-      <div class="modal-title" id="modalTitle">Matcha Latte</div>
-      <div class="modal-sub" id="modalPrice">75 บาท</div>
+<!-- Closed banner -->
+<div id="closeBanner" class="hidden"></div>
 
-      <div id="groupMatchaGrade" class="modal-group">
-        <label>เลือกมัทฉะ</label>
-        <select id="modalGrade">
-          <option value="Medium grade (umami/strength)" data-extra="0">
-            Medium grade (umami/strength)
-          </option>
-          <option value="High grade (umami/smooth/aroma) +10บาท" data-extra="10">
-            High grade (umami/smooth/aroma) +10บาท
-          </option>
-        </select>
-      </div>
-
-      <div id="groupSweetness" class="modal-group">
-        <label>ความหวาน</label>
-        <select id="modalSweetness">
-          <option value="0% (No syrup)">0% (No syrup)</option>
-          <option value="25%">25%</option>
-	  <option value="50%">50%</option>
-          <option value="100%" selected>100%</option>
-          <option value="150%">150%</option>
-        </select>
-      </div>
-
-      <div id="groupMatchaSeparate" class="modal-group">
-        <label>แยกมัทฉะ</label>
-        <select id="modalMatchaSeparate">
-          <option value="แยกมัทฉะใส่ถ้วย">แยกมัทฉะใส่ถ้วย</option>
-          <option value="เทมัทฉะลงแก้ว">เทมัทฉะลงแก้ว</option>
-        </select>
-      </div>
-
-      <div id="groupIceSeparate" class="modal-group">
-        <label>แยกน้ำแข็ง</label>
-        <select id="modalIceSeparate">
-          <option value="แยกน้ำแข็งใส่ถุงซิป">แยกน้ำแข็งใส่ถุงซิป</option>
-          <option value="ใส่น้ำแข็งลงแก้วพร้อมดื่ม">ใส่น้ำแข็งลงแก้วพร้อมดื่ม</option>
-        </select>
-      </div>
-
-      <!-- ===== RICE OPTIONS ===== -->
-      <div id="groupRiceSauce" class="modal-group" style="display:none;">
-        <label>เลือกซอส</label>
-        <select id="modalSauce">
-          <option value="Garlic shoyu">Garlic shoyu</option>
-          <option value="BBQ sauce">BBQ sauce</option>
-        </select>
-      </div>
-
-      <div id="groupRiceExtra" class="modal-group" style="display:none;">
-        <label>เลือกเพิ่ม</label>
-        <div class="small">
-          <label><input type="checkbox" value="เพิ่มสาหร่ายโรยข้าว +10"> เพิ่มสาหร่ายโรยข้าว +10 บาท</label><br>
-          <label><input type="checkbox" value="เพิ่มซุปมิโซะ +10"> เพิ่มซุปมิโซะ +10 บาท</label><br>
-          <label><input type="checkbox" value="เพิ่มสลัด +10"> เพิ่มสลัด +10 บาท</label>
-        </div>
-      </div>
-
-      <div class="modal-group">
-        <label>จำนวน</label>
-        <input id="modalQty" type="number" min="1" value="1">
-      </div>
-
-      <div class="modal-group">
-        <label>หมายเหตุ (ต่อเมนูนี้)</label>
-        <input id="modalNote" type="text" placeholder=" ">
-      </div>
-
-      <div class="modal-actions">
-        <button class="btn secondary" onclick="closeModal()">ยกเลิก</button>
-        <button class="btn" onclick="confirmAddToCart()">ยืนยันเพิ่มลงตะกร้า</button>
-      </div>
+<!-- Confirmation screen (hidden until order success) -->
+<div id="confirmationScreen">
+  <div class="confirm-card">
+    <div class="confirm-icon">🎉</div>
+    <div class="confirm-title" id="confirmTitle">ส่งคำสั่งซื้อเรียบร้อย!</div>
+    <div class="confirm-order-id" id="confirmOrderId"></div>
+    <div class="confirm-customer-row" id="confirmCustomer"></div>
+    <table class="confirm-items-table">
+      <thead>
+        <tr>
+          <th id="confirmThItem">รายการ</th>
+          <th id="confirmThQty" style="text-align:center;">x</th>
+          <th id="confirmThPrice" style="text-align:right;">ราคา</th>
+        </tr>
+      </thead>
+      <tbody id="confirmItemsBody"></tbody>
+    </table>
+    <div class="confirm-total-row">
+      <span id="confirmTotalLabel">ยอดรวม</span>
+      <span id="confirmTotalValue"></span>
     </div>
+    <div class="confirm-thankyou" id="confirmThankyou">
+      ขอบคุณที่สั่งกับ Glongnom Matcha ^^<br> รบกวนทักไลน์ร้านเพื่อให้ร้านเห็นแชทนะคะ🙏
+    </div>
+    <button class="confirm-new-order-btn" id="confirmNewOrderBtn" onclick="resetForNewOrder()">
+      สั่งอีกครั้ง
+    </button>
+  </div>
+</div>
+
+<!-- Main page -->
+<div id="mainPage" class="page">
+
+  <!-- Category tabs -->
+  <div class="category-bar" id="categoryBar">
+    <button class="cat-btn active" data-cat="all"    id="cat-all">ทั้งหมด</button>
+    <button class="cat-btn"        data-cat="matcha" id="cat-matcha">ชาเขียว</button>
+    <button class="cat-btn"        data-cat="drinks" id="cat-drinks">เครื่องดื่ม</button>
+    <button class="cat-btn"        data-cat="rice"   id="cat-rice">ข้าว</button>
   </div>
 
-  <script>
-    // ---------- CONFIG ----------
-    const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbypSL4Jg4HKqZKRj4Gw5PJfwK12FuZ_z2Lsp6lIhmi3lYDu91pzqxEmQE8DbPzP9_VP/exec'; // <--- ใส่ URL /exec ของ Apps Script
+  <div class="layout">
+    <!-- Menu grid -->
+    <section>
+      <div class="menu-grid" id="menuGrid"></div>
+    </section>
 
-    let MENU = [];
-    let SETTINGS = {};
-    let SHOP_OPEN = true;
-    let currentCategory = 'all';
-    let CLOSE_MESSAGE = 'วันนี้ร้านปิดรับออเดอร์ชั่วคราวค่ะ 💕';
-    let cart = [];
-    let currentMenuItem = null;
+    <!-- Cart panel (desktop sidebar only) -->
+    <aside class="cart-panel" id="cartPanel">
+      <div class="cart-header">
+        <div class="cart-header-title" id="cartTitle">ตะกร้าสินค้า</div>
+        <div class="cart-count-label" id="cartCountLabel"></div>
+      </div>
+      <div class="cart-items-list" id="cartItemsList"></div>
+      <div class="cart-total-row" id="cartTotalRow">ยอดรวม: 0 บาท</div>
+      <button class="cart-checkout-btn" id="cartCheckoutBtn" onclick="openCheckout()">
+        ดำเนินการต่อ
+      </button>
+    </aside>
+  </div>
+</div>
 
-    // แปลงค่าจากชีทเป็น boolean
-    function boolFromSetting(val, defaultTrue = true) {
-      if (val === undefined || val === null || val === '') return defaultTrue;
-      return String(val).trim().toUpperCase() !== 'FALSE';
-    }
-    function isEnabled(key) {
-      const v = SETTINGS[key];
-      if (v === undefined || v === null || v === '') return true;
-      return String(v).trim().toUpperCase() !== 'FALSE';
-    }
+<!-- Cart FAB (mobile only) -->
+<button class="cart-fab" id="cartFab" onclick="openCartSheet()">
+  🛒 ตะกร้า
+</button>
 
-    // แปลงชื่อเมนูเป็นชื่อไฟล์รูปใน assets
-    // เช่น "Matcha Latte" -> "assets/matcha-latte.jpg"
-    function imagePathFromName(name) {
-      if (/ข้าวหมูนู่มมม/.test(name)) return 'assets/moo-numm-rice.jpg';
-      if (/ข้าวเนื้อยุ่งงง/.test(name)) return 'assets/beef-numm-rice.jpg';
-      
-      const slug = String(name)
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')   // แทนอักขระที่ไม่ใช่ a-z0-9 ด้วย -
-        .replace(/^-+|-+$/g, '');      // ตัด - ส่วนเกินหัวท้าย
-      return 'assets/' + slug + '.jpg';  // ถ้าใช้ .png ให้เปลี่ยนตรงนี้
-    }
+<!-- Cart bottom sheet (mobile) -->
+<div class="cart-sheet-backdrop" id="cartSheetBackdrop" onclick="handleCartSheetBackdropClick(event)">
+  <div class="cart-sheet" id="cartSheet">
+    <div class="cart-sheet-header">
+      <div class="cart-sheet-title" id="cartSheetTitle">ตะกร้าสินค้า</div>
+      <button class="sheet-close-btn" onclick="closeCartSheet()">×</button>
+    </div>
+    <div class="cart-items-list" id="cartSheetItemsList"></div>
+    <div class="cart-total-row" id="cartSheetTotalRow">ยอดรวม: 0 บาท</div>
+    <button class="cart-sheet-checkout-btn" id="cartSheetCheckoutBtn" onclick="cartSheetCheckout()">
+      ดำเนินการต่อ
+    </button>
+  </div>
+</div>
 
-    document.addEventListener('DOMContentLoaded', () => {
-      // โหลดเมนู + settings จาก Apps Script (อ่านจากชีท)
-      fetch(BACKEND_URL)
-        .then(r => r.json())
-        .then(data => {
-          const rawMenu = data.menu || [];
-          SETTINGS = data.settings || {};
+<!-- Checkout slide-over drawer -->
+<div class="checkout-overlay" id="checkoutOverlay" onclick="handleCheckoutOverlayClick(event)"></div>
+<div class="checkout-drawer" id="checkoutDrawer">
+  <div class="checkout-drawer-inner">
+    <div class="checkout-drawer-header">
+      <div class="checkout-drawer-title" id="checkoutDrawerTitle">ยืนยันออเดอร์</div>
+      <button class="checkout-close-btn" onclick="closeCheckout()">×</button>
+    </div>
 
-          SHOP_OPEN = boolFromSetting(SETTINGS.SHOP_OPEN, true);
-          CLOSE_MESSAGE = SETTINGS.CLOSE_MESSAGE || CLOSE_MESSAGE;
+    <!-- Order summary -->
+    <div class="drawer-summary" id="drawerSummary">
+      <div class="drawer-summary-title" id="drawerSummaryTitle">สรุปออเดอร์</div>
+      <div id="drawerSummaryItems"></div>
+      <div class="drawer-summary-total">
+        <span id="drawerSummaryTotalLabel">ยอดรวม</span>
+        <span id="drawerSummaryTotalValue">0 บาท</span>
+      </div>
+    </div>
 
-          // map เมนูจาก backend -> ใช้รูปจาก assets ตามชื่อเมนู
-          MENU = rawMenu.map(m => ({
-            id: m.id,
-            name: m.name,
-            price: m.basePrice,
-            image: imagePathFromName(m.name),
-            isMatcha: !!m.isMatcha,
-	    isRice: /ข้าว/.test(m.name)
-          }));
+    <!-- Customer info fields -->
+    <div class="form-field">
+      <label class="form-label" id="labelName" for="customerName">ชื่อลูกค้า (LINE)</label>
+      <input class="form-input" id="customerName" type="text" autocomplete="name">
+      <div class="field-error" id="errName">กรุณากรอกชื่อ</div>
+    </div>
 
-          if (!SHOP_OPEN) {
-  	    const banner = document.getElementById('closeBanner');
-  	    banner.textContent = CLOSE_MESSAGE;
-  	    banner.classList.remove('hidden');      // โชว์แถบข้อความใหญ่ด้านบน
+    <!-- Honeypot -->
+    <div class="hp-field" aria-hidden="true">
+      <input type="text" name="website" id="hpField" tabindex="-1" autocomplete="off">
+    </div>
 
-  	    document.getElementById('submitBtn').disabled = true;
-	  }
+    <div class="form-field">
+      <label class="form-label" id="labelPhone" for="customerPhone">เบอร์ติดต่อ</label>
+      <input class="form-input" id="customerPhone" type="tel" autocomplete="tel" inputmode="numeric" maxlength="10">
+      <div class="field-error" id="errPhone">กรุณากรอกเบอร์โทรให้ถูกต้อง (0XXXXXXXXX)</div>
+    </div>
 
-          renderMenu();
-          setCategory('all');
-          renderCart();
-        })
-        .catch(err => {
-          console.error(err);
-          alert('โหลดเมนูไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
-        });
-    });
+    <div class="form-field">
+      <label class="form-label" id="labelAddress" for="customerAddress">สถานที่จัดส่ง / ตึก-อาคาร</label>
+      <input class="form-input" id="customerAddress" type="text" autocomplete="street-address">
+      <div class="field-error" id="errAddress">กรุณากรอกสถานที่จัดส่ง</div>
+    </div>
 
-    function showCloseMessage() {
-      alert(CLOSE_MESSAGE);
-    }
+    <button class="submit-btn" id="submitBtn" onclick="submitOrder()">
+      ยืนยันคำสั่งซื้อ
+    </button>
+    <div id="submitErrorMsg"></div>
+    <div class="danger-note" id="dangerNote">
+      * กรุณาตรวจสอบเมนู ตัวเลือก และสถานที่จัดส่งให้ถูกต้องก่อนกดส่ง
+    </div>
+  </div>
+</div>
 
-    function setCategory(cat) {
-      currentCategory = cat;
+<!-- Option modal -->
+<div id="optionModal" class="modal-backdrop" onclick="handleBackdropClick(event)">
+  <div class="modal" id="modalBox">
+    <div class="modal-item-name" id="modalItemName"></div>
+    <div class="modal-base-price" id="modalBasePrice"></div>
 
-      document.querySelectorAll('.category-bar .btn')
-        .forEach(btn => btn.style.opacity = '0.5');
+    <!-- Dynamic option groups rendered here -->
+    <div id="modalOptionsContainer"></div>
 
-      const activeBtn = {
-        'all': 'cat-all',
-        'matcha': 'cat-matcha',
-        'non-matcha': 'cat-non',
-        'rice': 'cat-rice'
-      };
+    <!-- Quantity -->
+    <div class="modal-group">
+      <div class="modal-group-label" id="modalQtyLabel">จำนวน</div>
+      <div class="qty-row">
+        <button class="qty-btn" onclick="changeQty(-1)">−</button>
+        <div class="qty-value" id="modalQtyValue">1</div>
+        <button class="qty-btn" onclick="changeQty(1)">+</button>
+      </div>
+    </div>
 
-      document.getElementById(activeBtn[cat]).style.opacity = '1';
+    <!-- Note -->
+    <div class="modal-group">
+      <div class="modal-group-label" id="modalNoteLabel">หมายเหตุ (ต่อเมนูนี้)</div>
+      <input class="modal-note-input" id="modalNoteInput" type="text" placeholder="">
+    </div>
+
+    <!-- Live price -->
+    <div class="modal-live-price">
+      <span id="modalLivePriceLabel">รวมรายการนี้</span>&nbsp;
+      <span id="modalLivePrice">0 บาท</span>
+    </div>
+
+    <div class="modal-actions">
+      <button class="modal-cancel-btn" id="modalCancelBtn" onclick="closeModal()">ยกเลิก</button>
+      <button class="modal-confirm-btn" id="modalConfirmBtn" onclick="confirmAddToCart()">ยืนยันเพิ่มลงตะกร้า</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ============================================================
+     JAVASCRIPT
+============================================================ -->
+<script>
+// ──────────────────────────────────────────────────────────────
+//  CONFIG — replace with your deployed Apps Script /exec URL
+// ──────────────────────────────────────────────────────────────
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbxhvDgSZEpctEJVwp4-MfEymSrqLOsxFuu4m6x0alGpMnbbXby2ZmAVbBu14Y3qoHqu3A/exec';
+
+// ──────────────────────────────────────────────────────────────
+//  TRANSLATIONS
+// ──────────────────────────────────────────────────────────────
+const T = {
+  th: {
+    loading:             'กำลังโหลดเมนู...',
+    loadingSubmit:       'กำลังส่งคำสั่งซื้อ...',
+    tagline:             'มัทฉะคราฟท์สดใหม่ ส่งถึงมือคุณ',
+    openBadge:          'เปิดรับออเดอร์',
+    closedBadge:        'ปิดรับออเดอร์',
+    catAll:             'ทั้งหมด',
+    catMatcha:          'มัทฉะ',
+    catDrinks:          'เครื่องดื่ม',
+    catRice:            'ข้าว',
+    cartTitle:          'ตะกร้าสินค้า',
+    cartEmpty:          'ยังไม่มีสินค้าในตะกร้า',
+    cartTotal:          'ยอดรวม',
+    cartBadge:          'ตะกร้า',
+    checkoutBtn:        'ดำเนินการต่อ',
+    checkoutTitle:      'ยืนยันออเดอร์',
+    orderSummary:       'สรุปออเดอร์',
+    labelName:          'ชื่อลูกค้า (LINE)',
+    labelPhone:         'เบอร์ติดต่อ',
+    labelAddress:       'สถานที่จัดส่ง / ตึก-อาคาร',
+    placeName:          'เช่น glongnom',
+    placePhone:         'เช่น 0812345678',
+    placeAddress:       'เช่น ยูบ้าน ตึก A',
+    submitBtn:          'ยืนยันคำสั่งซื้อ',
+    submitting:         'กำลังส่ง...',
+    dangerNote:         '* กรุณาตรวจสอบเมนู ตัวเลือก และสถานที่จัดส่งให้ถูกต้องก่อนกดส่ง',
+    errName:            'กรุณากรอกชื่อ',
+    errPhone:           'กรุณากรอกเบอร์โทรให้ถูกต้อง (0XXXXXXXXX)',
+    errAddress:         'กรุณากรอกสถานที่จัดส่ง',
+    errCartEmpty:       'กรุณาเลือกเมนูใส่ตะกร้าก่อน',
+    errShopClosed:      'ร้านปิดรับออเดอร์ชั่วคราวค่ะ',
+    errSubmit:          'เกิดข้อผิดพลาดในการส่งคำสั่งซื้อ: ',
+    soldOut:            'หมด',
+    addToCart:          'เพิ่มลงตะกร้า',
+    remove:             'ลบ',
+    baht:               'บาท',
+    qty:                'จำนวน',
+    note:               'หมายเหตุ (ต่อเมนูนี้)',
+    notePlaceholder:    '',
+    subtotalLine:       'รวมรายการนี้',
+    cancelBtn:          'ยกเลิก',
+    confirmBtn:         'ยืนยันเพิ่มลงตะกร้า',
+    confirmTitle:       'ส่งคำสั่งซื้อเรียบร้อย!',
+    confirmThItem:      'รายการ',
+    confirmThQty:       'จำนวน',
+    confirmThPrice:     'ราคา',
+    confirmTotalLabel:  'ยอดรวม',
+    confirmThankyou:    'ขอบคุณที่สั่งกับ Glongnom Matcha ^^\nรบกวนทักไลน์ร้านเพื่อให้ร้านเห็นแชทนะคะ🙏',
+    confirmNewOrder:    'สั่งอีกครั้ง',
+    orderId:            'หมายเลขออเดอร์',
+    noMenu:             'ยังไม่มีเมนูเปิดขาย',
+    loadError:          'โหลดเมนูไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+    toastAdded:         'เพิ่มลงตะกร้าแล้ว',
+  },
+  en: {
+    loading:            'Loading menu...',
+    loadingSubmit:      'Sending order...',
+    tagline:            'Fresh craft matcha, delivered to you',
+    openBadge:          'Open for orders',
+    closedBadge:        'Closed',
+    catAll:             'All',
+    catMatcha:          'Matcha',
+    catDrinks:          'Drinks',
+    catRice:            'Rice Bowls',
+    cartTitle:          'Cart',
+    cartEmpty:          'Your cart is empty',
+    cartTotal:          'Total',
+    cartBadge:          'Cart',
+    checkoutBtn:        'Checkout',
+    checkoutTitle:      'Checkout',
+    orderSummary:       'Order Summary',
+    labelName:          'Your name (LINE)',
+    labelPhone:         'Phone number',
+    labelAddress:       'Delivery address / Building',
+    placeName:          'e.g. glongnom',
+    placePhone:         'e.g. 0812345678',
+    placeAddress:       'e.g. U Baan, Building A',
+    submitBtn:          'Place Order',
+    submitting:         'Sending...',
+    dangerNote:         '* Please double-check your items, options, and address before submitting.',
+    errName:            'Please enter your name',
+    errPhone:           'Enter a valid Thai phone number (0XXXXXXXXX)',
+    errAddress:         'Please enter your delivery address',
+    errCartEmpty:       'Please add items to your cart first',
+    errShopClosed:      'The shop is currently closed',
+    errSubmit:          'Order submission failed: ',
+    soldOut:            'Sold Out',
+    addToCart:          'Add to Cart',
+    remove:             'Remove',
+    baht:               'THB',
+    qty:                'Quantity',
+    note:               'Note (for this item)',
+    notePlaceholder:    '',
+    subtotalLine:       'Item total',
+    cancelBtn:          'Cancel',
+    confirmBtn:         'Add to Cart',
+    confirmTitle:       'Order Placed!',
+    confirmThItem:      'Item',
+    confirmThQty:       'Qty',
+    confirmThPrice:     'Price',
+    confirmTotalLabel:  'Total',
+    confirmThankyou:    'Thank you for ordering with Glongnom!\nWe will contact you via LINE.',
+    confirmNewOrder:    'Order Again',
+    orderId:            'Order ID',
+    noMenu:             'No menu items available',
+    loadError:          'Failed to load menu. Please refresh.',
+    toastAdded:         'added to cart',
+  }
+};
+
+// ──────────────────────────────────────────────────────────────
+//  STATE
+// ──────────────────────────────────────────────────────────────
+let lang        = localStorage.getItem('glongnom_lang') || 'th';
+let MENU        = [];
+let OPTIONS     = [];
+let SHOP_OPEN   = true;
+let CLOSE_MSG   = '';
+let SHOP_NAME   = 'Glongnom';
+let cart        = [];
+let currentCat  = 'all';
+let currentItem = null;
+let modalQty    = 1;
+// modalSelections: { group_id: optionIndex } for single-select groups
+// modalMultiSelections: { group_id: Set of optionIndices } for multi-select groups
+let modalSelections      = {};
+let modalMultiSelections = {};
+
+// ──────────────────────────────────────────────────────────────
+//  LANGUAGE
+// ──────────────────────────────────────────────────────────────
+function t(key) {
+  return (T[lang] && T[lang][key]) ? T[lang][key] : (T['th'][key] || key);
+}
+
+function toggleLang() {
+  lang = (lang === 'th') ? 'en' : 'th';
+  localStorage.setItem('glongnom_lang', lang);
+  applyLang();
+  renderMenu();
+  renderCart();
+}
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.getElementById('langToggle').textContent = lang === 'th' ? 'TH | EN' : 'EN | TH';
+  document.getElementById('heroTagline').textContent   = t('tagline');
+  document.getElementById('cartTitle').textContent     = t('cartTitle');
+  document.getElementById('cartSheetTitle').textContent = t('cartTitle');
+  document.getElementById('cartCheckoutBtn').textContent = t('checkoutBtn');
+  document.getElementById('cartSheetCheckoutBtn').textContent = t('checkoutBtn');
+  document.getElementById('checkoutDrawerTitle').textContent  = t('checkoutTitle');
+  document.getElementById('drawerSummaryTitle').textContent   = t('orderSummary');
+  document.getElementById('drawerSummaryTotalLabel').textContent = t('cartTotal');
+  document.getElementById('labelName').textContent     = t('labelName');
+  document.getElementById('labelPhone').textContent    = t('labelPhone');
+  document.getElementById('labelAddress').textContent  = t('labelAddress');
+  document.getElementById('customerName').placeholder    = t('placeName');
+  document.getElementById('customerPhone').placeholder   = t('placePhone');
+  document.getElementById('customerAddress').placeholder = t('placeAddress');
+  document.getElementById('submitBtn').textContent     = t('submitBtn');
+  document.getElementById('dangerNote').textContent    = t('dangerNote');
+  document.getElementById('errName').textContent       = t('errName');
+  document.getElementById('errPhone').textContent      = t('errPhone');
+  document.getElementById('errAddress').textContent    = t('errAddress');
+  // Category tabs
+  document.getElementById('cat-all').textContent    = t('catAll');
+  document.getElementById('cat-matcha').textContent = t('catMatcha');
+  document.getElementById('cat-drinks').textContent = t('catDrinks');
+  document.getElementById('cat-rice').textContent   = t('catRice');
+  // Hero badge
+  const badge = document.getElementById('heroBadge');
+  if (badge.style.display !== 'none') {
+    badge.textContent = SHOP_OPEN ? t('openBadge') : t('closedBadge');
+    badge.className   = 'hero-badge' + (SHOP_OPEN ? '' : ' closed');
+  }
+  // Confirmation screen labels
+  document.getElementById('confirmTitle').textContent       = t('confirmTitle');
+  document.getElementById('confirmThItem').textContent      = t('confirmThItem');
+  document.getElementById('confirmThQty').textContent       = t('confirmThQty');
+  document.getElementById('confirmThPrice').textContent     = t('confirmThPrice');
+  document.getElementById('confirmTotalLabel').textContent  = t('confirmTotalLabel');
+  document.getElementById('confirmNewOrderBtn').textContent = t('confirmNewOrder');
+}
+
+// ──────────────────────────────────────────────────────────────
+//  LOADING OVERLAY
+// ──────────────────────────────────────────────────────────────
+function showLoading(labelKey) {
+  document.getElementById('loadingLabel').textContent = t(labelKey || 'loading');
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+// ──────────────────────────────────────────────────────────────
+//  INIT
+// ──────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  applyLang();
+  prefillFromStorage();
+  showLoading('loading');
+
+  fetch(BACKEND_URL)
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(data => {
+      SHOP_OPEN  = data.shop_open !== false;
+      CLOSE_MSG  = data.close_message || t('errShopClosed');
+      SHOP_NAME  = data.shop_name    || 'Glongnom';
+      MENU       = data.menu         || [];
+      OPTIONS    = data.options      || [];
+
+      document.getElementById('heroShopName').textContent = SHOP_NAME;
+
+      if (!SHOP_OPEN) {
+        const banner = document.getElementById('closeBanner');
+        banner.textContent = CLOSE_MSG;
+        banner.classList.remove('hidden');
+        document.getElementById('submitBtn').disabled = true;
+        const badge = document.getElementById('heroBadge');
+        badge.textContent = t('closedBadge');
+        badge.className   = 'hero-badge closed';
+        badge.style.display = 'inline-block';
+      } else {
+        const badge = document.getElementById('heroBadge');
+        badge.textContent   = t('openBadge');
+        badge.style.display = 'inline-block';
+      }
 
       renderMenu();
-    }
-
-    // ---------- RENDER MENU ----------
-    function renderMenu() {
-      const grid = document.getElementById('menuGrid');
-      grid.innerHTML = '';
-
-      if (MENU.length === 0) {
-        grid.innerHTML = '<div>ยังไม่มีเมนูเปิดขาย</div>';
-        return;
-      }
-
-      MENU
-        .filter(item => {
-          if (currentCategory === 'all') return true;
-          if (currentCategory === 'matcha') return item.isMatcha;
-          if (currentCategory === 'non-matcha') return !item.isMatcha && !item.isRice;
-          if (currentCategory === 'rice') return item.isRice;
-        })
-        .forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'menu-card';
-
-        const imgBox = document.createElement('div');
-        imgBox.className = 'menu-img';
-        const img = document.createElement('img');
-        img.loading = 'lazy';
-        img.src = item.image || 'assets/default-drink.jpg'; // ถ้าไม่มีไฟล์จะใช้รูป default
-        img.alt = item.name;
-        imgBox.appendChild(img);
-        card.appendChild(imgBox);
-
-        const nameRow = document.createElement('div');
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'menu-name';
-        nameSpan.textContent = item.name;
-        nameRow.appendChild(nameSpan);
-       
-        card.appendChild(nameRow);
-
-        const price = document.createElement('div');
-        price.className = 'menu-price';
-        price.textContent = item.price + ' บาท';
-        card.appendChild(price);
-
-        const qtyRow = document.createElement('div');
-        qtyRow.className = 'qty-row';
-
-        const qtyInput = document.createElement('input');
-        qtyInput.type = 'number';
-        qtyInput.min = '1';
-        qtyInput.value = '1';
-        qtyInput.id = 'qty-' + item.id;
-        qtyRow.appendChild(qtyInput);
-
-        const btn = document.createElement('button');
-        btn.className = 'btn';
-        btn.textContent = 'เพิ่มลงตะกร้า';
-        btn.disabled = !SHOP_OPEN;
-        btn.onclick = () => openOptionModal(item.id);
-        qtyRow.appendChild(btn);
-
-        card.appendChild(qtyRow);
-        grid.appendChild(card);
-      });
-    }
-
-    // ---------- MODAL ----------
-    function openOptionModal(menuId) {
-      if (!SHOP_OPEN) {
-        alert(CLOSE_MESSAGE);
-        return;
-      }
-      const item = MENU.find(m => m.id === menuId);
-      if (!item) return;
-      currentMenuItem = item;
-
-      document.getElementById('modalTitle').textContent = item.name;
-      document.getElementById('modalPrice').textContent = item.price + ' บาท';
-
-      document.getElementById('modalGrade').selectedIndex = 0;
-      document.getElementById('modalSweetness').value = '100%';
-      document.getElementById('modalMatchaSeparate').value = 'แยกมัทฉะใส่ถ้วย';
-      document.getElementById('modalIceSeparate').value = 'แยกน้ำแข็งใส่ถุงซิป';
-      document.getElementById('modalQty').value =
-        Math.max(1, parseInt(document.getElementById('qty-' + menuId).value) || 1);
-      document.getElementById('modalNote').value = '';
-
-      const isRice = item.isRice;
-
-      const showGrade = item.isMatcha && isEnabled('ENABLE_MATCHA_GRADE') && !isRice;
-      const showMatchaSep = item.isMatcha && isEnabled('ENABLE_MATCHA_SEPARATE') && !isRice;
-      const showSweet = isEnabled('ENABLE_SWEETNESS') && !isRice;
-      const showIceSep = isEnabled('ENABLE_ICE_SEPARATE') && !isRice;
-      const showRice = item.isRice;
-
-      document.getElementById('groupRiceSauce').style.display = showRice ? 'block' : 'none';
-      document.getElementById('groupRiceExtra').style.display = showRice ? 'block' : 'none';
-      document.getElementById('modalSauce').value = 'Garlic shoyu';
-      document.querySelectorAll('#groupRiceExtra input[type=checkbox]')
-        .forEach(cb => cb.checked = false);
-      document.getElementById('groupMatchaGrade').style.display   = showGrade ? 'block' : 'none';
-      document.getElementById('groupMatchaSeparate').style.display = showMatchaSep ? 'block' : 'none';
-      document.getElementById('groupSweetness').style.display     = showSweet ? 'block' : 'none';
-      document.getElementById('groupIceSeparate').style.display   = showIceSep ? 'block' : 'none';
-
-      document.getElementById('optionModal').classList.add('show');
-    }
-
-    function closeModal() {
-      document.getElementById('optionModal').classList.remove('show');
-      currentMenuItem = null;
-    }
-
-    function confirmAddToCart() {
-      if (!currentMenuItem) return;
-
-      const qty = Math.max(1, parseInt(document.getElementById('modalQty').value) || 1);
-      const note = document.getElementById('modalNote').value.trim();
-
-      let gradeText = '';
-      let gradeExtra = 0;
-      if (currentMenuItem.isMatcha && isEnabled('ENABLE_MATCHA_GRADE')) {
-        const gradeSel = document.getElementById('modalGrade');
-        gradeText = gradeSel.value;
-        gradeExtra = parseFloat(gradeSel.selectedOptions[0].dataset.extra || '0');
-      }
-
-      let sweetText = '';
-      if (!currentMenuItem.isRice && isEnabled('ENABLE_SWEETNESS')) {
-        sweetText = document.getElementById('modalSweetness').value;
-      }
-
-      let matchaSepText = '';
-      if (currentMenuItem.isMatcha && isEnabled('ENABLE_MATCHA_SEPARATE')) {
-        matchaSepText = document.getElementById('modalMatchaSeparate').value;
-      }
-
-      let iceSepText = '';
-      if (!currentMenuItem.isRice && isEnabled('ENABLE_ICE_SEPARATE')) {
-        iceSepText = document.getElementById('modalIceSeparate').value;
-      }
-      
-      // ===== RICE OPTIONS =====
-      let riceSauce = '';
-      let riceExtras = [];
-      let riceExtraPrice = 0;
-
-      if (currentMenuItem.isRice) {
-        riceSauce = document.getElementById('modalSauce').value;
-
-        document.querySelectorAll('#groupRiceExtra input[type=checkbox]:checked')
-          .forEach(cb => {
-            riceExtras.push(cb.value);
-            riceExtraPrice += 10;
-          });
-      }
-
-      const price = currentMenuItem.price + gradeExtra + riceExtraPrice;
-      const subtotal = price * qty;
-
-      const parts = [];
-      if (gradeText) parts.push('มัทฉะ: ' + gradeText);
-      if (sweetText) parts.push('หวาน: ' + sweetText);
-      if (matchaSepText) parts.push('แยกมัทฉะ: ' + matchaSepText);
-      if (iceSepText) parts.push('น้ำแข็ง: ' + iceSepText);
-      // ===== RICE OPTIONS TEXT =====
-      if (riceSauce) parts.push('ซอส: ' + riceSauce);
-      if (riceExtras.length) parts.push('เพิ่ม: ' + riceExtras.join(', '));
-      const optionsText = parts.join(' | ');
-
-      cart.push({
-        id: currentMenuItem.id,
-        name: currentMenuItem.name,
-        optionsText,
-        qty,
-        note,
-        price,
-        subtotal
-      });
-
-      closeModal();
       renderCart();
+      hideLoading();
+    })
+    .catch(err => {
+      hideLoading();
+      console.error(err);
+      document.getElementById('menuGrid').innerHTML =
+        '<div style="color:#B71C1C; font-weight:600;">' + t('loadError') + '</div>';
+    });
+});
+
+// ──────────────────────────────────────────────────────────────
+//  CATEGORY FILTER
+// ──────────────────────────────────────────────────────────────
+function setCategory(cat) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === cat);
+  });
+  renderMenu();
+}
+
+// Attach listeners to static category buttons
+document.getElementById('categoryBar').addEventListener('click', e => {
+  const btn = e.target.closest('.cat-btn');
+  if (btn) setCategory(btn.dataset.cat);
+});
+
+// ──────────────────────────────────────────────────────────────
+//  RENDER MENU
+// ──────────────────────────────────────────────────────────────
+function renderMenu() {
+  const grid = document.getElementById('menuGrid');
+  grid.innerHTML = '';
+
+  const filtered = MENU.filter(item => {
+    if (currentCat === 'all')    return true;
+    if (currentCat === 'matcha') return item.category === 'matcha';
+    if (currentCat === 'drinks') return item.category === 'drinks';
+    if (currentCat === 'rice')   return item.category === 'rice';
+    return true;
+  });
+
+  // Sort: active items first, sold-out items last
+  filtered.sort((a, b) => {
+    if (a.active === b.active) return 0;
+    return a.active ? -1 : 1;
+  });
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div style="color:var(--text-muted);">' + t('noMenu') + '</div>';
+    return;
+  }
+
+  filtered.forEach(item => {
+    const isSoldOut = !item.active;
+
+    const card = document.createElement('div');
+    card.className = 'menu-card' + (isSoldOut ? ' sold-out' : '');
+
+    // Image
+    const imgWrap = document.createElement('div');
+    imgWrap.className = 'menu-img-wrap';
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.src     = item.emoji_or_image || ('assets/' + slugify(item.name_en) + '.jpg');
+    img.alt     = lang === 'th' ? item.name_th : item.name_en;
+    imgWrap.appendChild(img);
+
+    // Sold-out overlay
+    const soldBadge = document.createElement('div');
+    soldBadge.className = 'sold-out-badge';
+    soldBadge.innerHTML = '<span>' + t('soldOut') + ' / Sold Out</span>';
+    imgWrap.appendChild(soldBadge);
+    card.appendChild(imgWrap);
+
+    // Name
+    const nameEl = document.createElement('div');
+    nameEl.className = 'menu-name';
+    nameEl.textContent = lang === 'th' ? item.name_th : item.name_en;
+    card.appendChild(nameEl);
+
+    // Description
+    const desc = lang === 'th' ? item.description_th : item.description_en;
+    if (desc) {
+      const descEl = document.createElement('div');
+      descEl.className = 'menu-desc';
+      descEl.textContent = desc;
+      card.appendChild(descEl);
     }
 
-    // ---------- CART ----------
-    function renderCart() {
-      const list = document.getElementById('cartItems');
-      const totalEl = document.getElementById('cartTotal');
-      const countEl = document.getElementById('cartCount');
+    // Price
+    const priceEl = document.createElement('div');
+    priceEl.className = 'menu-price';
+    priceEl.textContent = item.price + ' ' + t('baht');
+    card.appendChild(priceEl);
 
-      list.innerHTML = '';
-      if (cart.length === 0) {
-        list.innerHTML = '<div class="small">ยังไม่มีสินค้าในตะกร้า</div>';
-        totalEl.textContent = 'ยอดรวม: 0 บาท';
-        countEl.textContent = '';
-        return;
+    // Add button
+    const addBtn = document.createElement('button');
+    addBtn.className  = 'menu-add-btn';
+    addBtn.textContent = t('addToCart');
+    addBtn.disabled   = isSoldOut || !SHOP_OPEN;
+    if (!isSoldOut) {
+      addBtn.onclick = () => openModal(item.id);
+    }
+    card.appendChild(addBtn);
+
+    grid.appendChild(card);
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+//  OPTION GROUPS — which groups apply to a menu item?
+// ──────────────────────────────────────────────────────────────
+function getGroupsForItem(item) {
+  const isRice   = item.category === 'rice';
+  const isMatcha = item.category === 'matcha';
+
+  return OPTIONS.filter(group => {
+    const gid = group.group_id;
+    if (gid === 'matcha_grade') return isMatcha;
+    if (gid === 'sweetness')    return !isRice;
+    if (gid === 'matcha_sep')   return isMatcha;
+    if (gid === 'ice_sep')      return !isRice;
+    if (gid === 'rice_sauce')   return isRice;
+    if (gid === 'rice_extra')   return isRice;
+    // Any future group_id falls through — show for all
+    return true;
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+//  MODAL — open
+// ──────────────────────────────────────────────────────────────
+function openModal(menuId) {
+  if (!SHOP_OPEN) { alert(CLOSE_MSG); return; }
+  const item = MENU.find(m => m.id === menuId);
+  if (!item || !item.active) return;
+
+  currentItem = item;
+  modalQty    = 1;
+  modalSelections      = {};
+  modalMultiSelections = {};
+
+  document.getElementById('modalItemName').textContent =
+    lang === 'th' ? item.name_th : item.name_en;
+  document.getElementById('modalBasePrice').textContent =
+    item.price + ' ' + t('baht');
+  document.getElementById('modalQtyLabel').textContent   = t('qty');
+  document.getElementById('modalNoteLabel').textContent  = t('note');
+  document.getElementById('modalNoteInput').placeholder  = t('notePlaceholder');
+  document.getElementById('modalNoteInput').value        = '';
+  document.getElementById('modalQtyValue').textContent   = '1';
+  document.getElementById('modalCancelBtn').textContent  = t('cancelBtn');
+  document.getElementById('modalConfirmBtn').textContent = t('confirmBtn');
+  document.getElementById('modalLivePriceLabel').textContent = t('subtotalLine');
+
+  // Build option groups
+  const container = document.getElementById('modalOptionsContainer');
+  container.innerHTML = '';
+  const groups = getGroupsForItem(item);
+
+  groups.forEach(group => {
+    const isMulti = !group.is_required; // non-required groups = multi-select (add-ons)
+
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'modal-group';
+
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'modal-group-label';
+    labelDiv.textContent = lang === 'th' ? group.group_name_th : group.group_name_en;
+    if (group.is_required) {
+      const star = document.createElement('span');
+      star.className   = 'req-star';
+      star.textContent = ' *';
+      labelDiv.appendChild(star);
+    }
+    groupDiv.appendChild(labelDiv);
+
+    const chipGroup = document.createElement('div');
+    chipGroup.className = 'chip-group';
+
+    group.options.forEach((opt, optIdx) => {
+      const chip = document.createElement('button');
+      chip.className = 'chip' + (isMulti ? ' multi' : '');
+      chip.type      = 'button';
+
+      let label = lang === 'th' ? opt.name_th : opt.name_en;
+      if (opt.price_modifier > 0) {
+        label += ' ';
+        const extra = document.createElement('span');
+        extra.className = 'chip-extra';
+        extra.textContent = '+' + opt.price_modifier + ' ' + t('baht');
+        chip.textContent = label;
+        chip.appendChild(extra);
+      } else {
+        chip.textContent = label;
       }
 
-      let total = 0;
-      cart.forEach((item, index) => {
-        total += item.subtotal;
-        const row = document.createElement('div');
-        row.className = 'cart-item';
-        row.innerHTML = `
-          <div class="cart-item-main">
-            <div><strong>${item.name}</strong></div>
-            <div class="small">${item.optionsText || '-'}</div>
-            ${item.note ? `<div class="small">หมายเหตุ: ${item.note}</div>` : ''}
-            <div class="small">x${item.qty} • ${item.price}฿</div>
-          </div>
-          <div style="text-align:right;">
-            <div>${item.subtotal}฿</div>
-            <button class="btn secondary" style="margin-top:4px;" onclick="removeFromCart(${index})">ลบ</button>
-          </div>
-        `;
-        list.appendChild(row);
+      // Default selection: first option of each required group
+      if (!isMulti && optIdx === 0) {
+        chip.classList.add('selected');
+        modalSelections[group.group_id] = 0;
+      }
+      if (isMulti) {
+        modalMultiSelections[group.group_id] = new Set();
+      }
+
+      chip.onclick = () => {
+        if (isMulti) {
+          // Toggle multi-select
+          const set = modalMultiSelections[group.group_id];
+          if (set.has(optIdx)) {
+            set.delete(optIdx);
+            chip.classList.remove('selected');
+          } else {
+            set.add(optIdx);
+            chip.classList.add('selected');
+          }
+        } else {
+          // Single select — deselect siblings
+          chipGroup.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+          chip.classList.add('selected');
+          modalSelections[group.group_id] = optIdx;
+        }
+        updateLivePrice();
+      };
+
+      chipGroup.appendChild(chip);
+    });
+
+    groupDiv.appendChild(chipGroup);
+    container.appendChild(groupDiv);
+  });
+
+  updateLivePrice();
+  document.getElementById('optionModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('optionModal').classList.remove('show');
+  currentItem = null;
+}
+
+function handleBackdropClick(e) {
+  if (e.target === document.getElementById('optionModal')) closeModal();
+}
+
+// ──────────────────────────────────────────────────────────────
+//  QUANTITY in modal
+// ──────────────────────────────────────────────────────────────
+function changeQty(delta) {
+  modalQty = Math.max(1, modalQty + delta);
+  document.getElementById('modalQtyValue').textContent = modalQty;
+  updateLivePrice();
+}
+
+// ──────────────────────────────────────────────────────────────
+//  LIVE PRICE in modal
+// ──────────────────────────────────────────────────────────────
+function calcModalExtra() {
+  if (!currentItem) return 0;
+  const groups = getGroupsForItem(currentItem);
+  let extra = 0;
+
+  groups.forEach(group => {
+    const isMulti = !group.is_required;
+    if (isMulti) {
+      const set = modalMultiSelections[group.group_id] || new Set();
+      set.forEach(idx => {
+        extra += (group.options[idx] ? group.options[idx].price_modifier : 0);
       });
-
-      totalEl.textContent = 'ยอดรวม: ' + total + ' บาท';
-      countEl.textContent = cart.length + ' รายการ';
-    }
-
-    function removeFromCart(index) {
-      if (index >= 0 && index < cart.length) {
-        cart.splice(index, 1);
-        renderCart();
+    } else {
+      const idx = modalSelections[group.group_id];
+      if (idx !== undefined && group.options[idx]) {
+        extra += group.options[idx].price_modifier;
       }
     }
+  });
+  return extra;
+}
 
-    // ---------- SUBMIT ORDER ----------
-    function submitOrder() {
-      if (!SHOP_OPEN) {
-        alert(CLOSE_MESSAGE);
-        return;
+function updateLivePrice() {
+  if (!currentItem) return;
+  const extra    = calcModalExtra();
+  const unitPrice = currentItem.price + extra;
+  const total     = unitPrice * modalQty;
+  document.getElementById('modalLivePrice').textContent = total + ' ' + t('baht');
+}
+
+// ──────────────────────────────────────────────────────────────
+//  CONFIRM ADD TO CART
+// ──────────────────────────────────────────────────────────────
+function confirmAddToCart() {
+  if (!currentItem) return;
+
+  const groups    = getGroupsForItem(currentItem);
+  const note      = document.getElementById('modalNoteInput').value.trim();
+  const extra     = calcModalExtra();
+  const unitPrice = currentItem.price + extra;
+  const subtotal  = unitPrice * modalQty;
+
+  // Build options text for cart display and order submission
+  const parts = [];
+  groups.forEach(group => {
+    const isMulti = !group.is_required;
+    const gLabel  = lang === 'th' ? group.group_name_th : group.group_name_en;
+
+    if (isMulti) {
+      const set = modalMultiSelections[group.group_id] || new Set();
+      if (set.size > 0) {
+        const chosen = [];
+        set.forEach(idx => {
+          if (group.options[idx]) {
+            chosen.push(lang === 'th' ? group.options[idx].name_th : group.options[idx].name_en);
+          }
+        });
+        parts.push(gLabel + ': ' + chosen.join(', '));
       }
-      if (cart.length === 0) {
-        alert('กรุณาเลือกเมนูใส่ตะกร้าก่อน');
-        return;
+    } else {
+      const idx = modalSelections[group.group_id];
+      if (idx !== undefined && group.options[idx]) {
+        const opt = group.options[idx];
+        parts.push(gLabel + ': ' + (lang === 'th' ? opt.name_th : opt.name_en));
       }
-
-      const lineName = document.getElementById('lineName').value.trim();
-      const phone = document.getElementById('phone').value.trim();
-      const address = document.getElementById('address').value.trim();
-
-      if (!lineName) { alert('กรุณากรอกชื่อไลน์ลูกค้า'); return; }
-      if (!phone)    { alert('กรุณากรอกเบอร์ติดต่อ'); return; }
-      if (!address)  { alert('กรุณากรอกสถานที่จัดส่ง ตึก/อาคาร'); return; }
-
-      const total = cart.reduce((sum, item) => sum + item.subtotal, 0);
-      const order = { lineName, phone, address, total, items: cart };
-
-      const btn = document.getElementById('submitBtn');
-      btn.disabled = true;
-      btn.textContent = 'กำลังส่ง...';
-
-      fetch(BACKEND_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(order)
-      }).then(() => {
-        alert('ส่งคำสั่งซื้อเรียบร้อย! รบกวนทักแชทร้านเพื่อให้ร้านติดต่อกลับนะคะ <3');
-        cart = [];
-        renderCart();
-        btn.disabled = false;
-        btn.textContent = 'ยืนยันคำสั่งซื้อ';
-      }).catch(err => {
-        console.error(err);
-        alert('เกิดข้อผิดพลาดในการส่งคำสั่งซื้อ');
-        btn.disabled = false;
-        btn.textContent = 'ยืนยันคำสั่งซื้อ';
-      });
     }
-  </script>
+  });
+  const optionsText = parts.join(' | ');
+
+  // Save item reference before closeModal clears currentItem
+  const addedItem = currentItem;
+
+  cart.push({
+    id:          addedItem.id,
+    name_th:     addedItem.name_th,
+    name_en:     addedItem.name_en,
+    name:        addedItem.name_th,   // fallback for backend
+    optionsText,
+    qty:         modalQty,
+    note,
+    price:       unitPrice,
+    subtotal
+  });
+
+  closeModal();
+  renderCart();
+  updateCartFab();
+
+  // Show toast
+  const addedName = lang === 'th' ? addedItem.name_th : addedItem.name_en;
+  showToast('✓ ' + addedName + ' ' + t('toastAdded'));
+}
+
+// ──────────────────────────────────────────────────────────────
+//  RENDER CART
+// ──────────────────────────────────────────────────────────────
+function renderCart() {
+  renderCartInto(
+    document.getElementById('cartItemsList'),
+    document.getElementById('cartTotalRow'),
+    document.getElementById('cartCountLabel')
+  );
+  renderCartInto(
+    document.getElementById('cartSheetItemsList'),
+    document.getElementById('cartSheetTotalRow'),
+    null
+  );
+}
+
+function renderCartInto(listEl, totalEl, countEl) {
+  listEl.innerHTML = '';
+
+  if (cart.length === 0) {
+    const emptyNote = document.createElement('div');
+    emptyNote.className   = 'cart-empty-note';
+    emptyNote.textContent = t('cartEmpty');
+    listEl.appendChild(emptyNote);
+    totalEl.textContent = t('cartTotal') + ': 0 ' + t('baht');
+    if (countEl) countEl.textContent = '';
+    updateCartFab();
+    return;
+  }
+
+  let total = 0;
+  cart.forEach((item, idx) => {
+    total += item.subtotal;
+
+    const row = document.createElement('div');
+    row.className = 'cart-item';
+
+    const name = lang === 'th' ? item.name_th : item.name_en;
+
+    row.innerHTML = `
+      <div class="cart-item-main">
+        <div class="cart-item-name">${escHtml(name)}</div>
+        ${item.optionsText ? `<div class="cart-item-opts">${escHtml(item.optionsText)}</div>` : ''}
+        ${item.note        ? `<div class="cart-item-note">${escHtml(item.note)}</div>` : ''}
+        <div class="cart-item-qty">x${item.qty} &bull; ${item.price} ${t('baht')}</div>
+      </div>
+      <div class="cart-item-right">
+        <div class="cart-item-subtotal">${item.subtotal} ${t('baht')}</div>
+        <button class="cart-remove-btn" onclick="removeFromCart(${idx})">${t('remove')}</button>
+      </div>
+    `;
+    listEl.appendChild(row);
+  });
+
+  totalEl.textContent = t('cartTotal') + ': ' + total + ' ' + t('baht');
+  if (countEl) countEl.textContent = cart.length + ' ' + (lang === 'th' ? 'รายการ' : 'items');
+  updateCartFab();
+}
+
+function removeFromCart(idx) {
+  cart.splice(idx, 1);
+  renderCart();
+  // If checkout drawer is open, refresh its summary
+  if (document.getElementById('checkoutDrawer').classList.contains('open')) {
+    renderDrawerSummary();
+  }
+}
+
+function updateHeroCartBadge() {
+  const badge = document.getElementById('heroCartBadge');
+  if (cart.length === 0) {
+    badge.style.display = 'none';
+    return;
+  }
+  const total = cart.reduce((s, i) => s + i.subtotal, 0);
+  badge.style.display = 'block';
+  document.getElementById('heroCartText').textContent =
+    t('cartBadge') + ': ' + total + ' ' + t('baht');
+}
+
+// ──────────────────────────────────────────────────────────────
+//  CART FAB (mobile)
+// ──────────────────────────────────────────────────────────────
+function updateCartFab() {
+  const fab = document.getElementById('cartFab');
+  if (cart.length === 0) {
+    fab.textContent = '🛒 ' + t('cartTitle');
+    return;
+  }
+  const total = cart.reduce((s, i) => s + i.subtotal, 0);
+  fab.textContent = '🛒 ' + cart.length + ' ' + (lang === 'th' ? 'รายการ' : 'items') + ' · ' + total + ' ' + t('baht');
+}
+
+function openCartSheet() {
+  renderCart();
+  document.getElementById('cartSheetBackdrop').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCartSheet() {
+  document.getElementById('cartSheetBackdrop').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function handleCartSheetBackdropClick(e) {
+  if (e.target === document.getElementById('cartSheetBackdrop')) closeCartSheet();
+}
+
+function cartSheetCheckout() {
+  closeCartSheet();
+  openCheckout();
+}
+
+// Hero cart badge click — on mobile opens cart sheet, on desktop scrolls to cart
+function handleHeroCartClick() {
+  if (window.innerWidth <= 860) {
+    openCartSheet();
+  } else {
+    scrollToCart();
+  }
+}
+
+function scrollToCart() {
+  document.getElementById('cartPanel').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ──────────────────────────────────────────────────────────────
+//  CHECKOUT DRAWER
+// ──────────────────────────────────────────────────────────────
+function renderDrawerSummary() {
+  const itemsEl = document.getElementById('drawerSummaryItems');
+  itemsEl.innerHTML = '';
+  let total = 0;
+  cart.forEach(item => {
+    total += item.subtotal;
+    const name = lang === 'th' ? item.name_th : item.name_en;
+    const row = document.createElement('div');
+    row.className = 'drawer-summary-item';
+    row.innerHTML = '<span>' + escHtml(name) + ' x' + item.qty + '</span><span>' + item.subtotal + ' ' + t('baht') + '</span>';
+    itemsEl.appendChild(row);
+  });
+  document.getElementById('drawerSummaryTotalValue').textContent = total + ' ' + t('baht');
+}
+
+function openCheckout() {
+  if (cart.length === 0) {
+    alert(t('errCartEmpty'));
+    return;
+  }
+  renderDrawerSummary();
+  document.getElementById('checkoutOverlay').classList.add('open');
+  document.getElementById('checkoutDrawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCheckout() {
+  document.getElementById('checkoutOverlay').classList.remove('open');
+  document.getElementById('checkoutDrawer').classList.remove('open');
+  document.body.style.overflow = '';
+  // Clear any validation state
+  document.getElementById('submitErrorMsg').classList.remove('show');
+}
+
+function handleCheckoutOverlayClick(e) {
+  if (e.target === document.getElementById('checkoutOverlay')) closeCheckout();
+}
+
+// ──────────────────────────────────────────────────────────────
+//  FORM VALIDATION
+// ──────────────────────────────────────────────────────────────
+function showFieldError(id, show) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('show', show);
+}
+function setInputError(id, hasError) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('error', hasError);
+}
+
+function validatePhone(value) {
+  // Thai phone: starts with 0, exactly 10 digits
+  return /^0\d{9}$/.test(value.replace(/\s|-/g, ''));
+}
+
+// ──────────────────────────────────────────────────────────────
+//  LOCAL STORAGE — persist customer info
+// ──────────────────────────────────────────────────────────────
+function prefillFromStorage() {
+  const name    = localStorage.getItem('glongnom_name')    || '';
+  const phone   = localStorage.getItem('glongnom_phone')   || '';
+  const address = localStorage.getItem('glongnom_address') || '';
+  if (name)    document.getElementById('customerName').value    = name;
+  if (phone)   document.getElementById('customerPhone').value   = phone;
+  if (address) document.getElementById('customerAddress').value = address;
+}
+
+function saveCustomerToStorage(name, phone, address) {
+  localStorage.setItem('glongnom_name',    name);
+  localStorage.setItem('glongnom_phone',   phone);
+  localStorage.setItem('glongnom_address', address);
+}
+
+// ──────────────────────────────────────────────────────────────
+//  SUBMIT ORDER
+// ──────────────────────────────────────────────────────────────
+function submitOrder() {
+  // Honeypot check
+  if (document.getElementById('hpField').value !== '') {
+    // Silently discard — bot filled the honeypot
+    return;
+  }
+
+  if (!SHOP_OPEN) {
+    alert(CLOSE_MSG);
+    return;
+  }
+
+  if (cart.length === 0) {
+    alert(t('errCartEmpty'));
+    return;
+  }
+
+  const name    = document.getElementById('customerName').value.trim();
+  const phone   = document.getElementById('customerPhone').value.trim();
+  const address = document.getElementById('customerAddress').value.trim();
+
+  // Validate
+  let hasError = false;
+
+  if (!name) {
+    showFieldError('errName', true);
+    setInputError('customerName', true);
+    hasError = true;
+  } else {
+    showFieldError('errName', false);
+    setInputError('customerName', false);
+  }
+
+  if (!phone || !validatePhone(phone)) {
+    showFieldError('errPhone', true);
+    setInputError('customerPhone', true);
+    hasError = true;
+  } else {
+    showFieldError('errPhone', false);
+    setInputError('customerPhone', false);
+  }
+
+  if (!address) {
+    showFieldError('errAddress', true);
+    setInputError('customerAddress', true);
+    hasError = true;
+  } else {
+    showFieldError('errAddress', false);
+    setInputError('customerAddress', false);
+  }
+
+  if (hasError) return;
+
+  // Persist customer info
+  saveCustomerToStorage(name, phone, address);
+
+  const total = cart.reduce((s, i) => s + i.subtotal, 0);
+  const payload = {
+    customer_name: name,
+    phone,
+    address,
+    total,
+    items: cart
+  };
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled    = true;
+  btn.textContent = t('submitting');
+
+  const errMsg = document.getElementById('submitErrorMsg');
+  errMsg.classList.remove('show');
+
+  showLoading('loadingSubmit');
+
+  // Use text/plain to avoid CORS preflight on Google Apps Script
+  fetch(BACKEND_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body:    JSON.stringify(payload)
+  })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(data => {
+      hideLoading();
+      if (data.status === 'error') {
+        throw new Error(data.message || 'Unknown error');
+      }
+      // Success
+      const orderId = data.order_id || '';
+      closeCheckout();
+      showConfirmation(orderId, name, phone, address, cart, total);
+      cart = [];
+      renderCart();
+      btn.disabled    = false;
+      btn.textContent = t('submitBtn');
+    })
+    .catch(err => {
+      hideLoading();
+      console.error(err);
+      errMsg.textContent = t('errSubmit') + (err.message || '');
+      errMsg.classList.add('show');
+      btn.disabled    = false;
+      btn.textContent = t('submitBtn');
+    });
+}
+
+// ──────────────────────────────────────────────────────────────
+//  ORDER CONFIRMATION SCREEN
+// ──────────────────────────────────────────────────────────────
+function showConfirmation(orderId, name, phone, address, items, total) {
+  // Hide main page, show confirmation
+  document.getElementById('mainPage').classList.add('hidden');
+  const screen = document.getElementById('confirmationScreen');
+  screen.classList.add('show');
+
+  document.getElementById('confirmTitle').textContent = t('confirmTitle');
+  document.getElementById('confirmOrderId').textContent =
+    t('orderId') + ': ' + orderId;
+
+  const customerEl = document.getElementById('confirmCustomer');
+  customerEl.innerHTML =
+    '<strong>' + escHtml(name) + '</strong><br>' +
+    escHtml(phone) + '<br>' +
+    escHtml(address);
+
+  const tbody = document.getElementById('confirmItemsBody');
+  tbody.innerHTML = '';
+  items.forEach(item => {
+    const itemName = lang === 'th' ? item.name_th : item.name_en;
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + escHtml(itemName) +
+      (item.optionsText ? '<br><span style="font-size:0.7rem;color:var(--brown-light);">' + escHtml(item.optionsText) + '</span>' : '') +
+      (item.note ? '<br><span style="font-size:0.7rem;color:var(--brown-mid);font-style:italic;">' + escHtml(item.note) + '</span>' : '') +
+      '</td>' +
+      '<td style="text-align:center;">' + item.qty + '</td>' +
+      '<td>' + item.subtotal + ' ' + t('baht') + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('confirmTotalLabel').textContent = t('confirmTotalLabel');
+  document.getElementById('confirmTotalValue').textContent = total + ' ' + t('baht');
+  document.getElementById('confirmThankyou').textContent   = t('confirmThankyou');
+  document.getElementById('confirmNewOrderBtn').textContent = t('confirmNewOrder');
+
+  screen.scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetForNewOrder() {
+  document.getElementById('confirmationScreen').classList.remove('show');
+  document.getElementById('mainPage').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ──────────────────────────────────────────────────────────────
+//  TOAST
+// ──────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ──────────────────────────────────────────────────────────────
+//  UTILITIES
+// ──────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function slugify(name) {
+  return String(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+</script>
 </body>
 </html>
