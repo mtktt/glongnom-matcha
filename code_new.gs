@@ -207,9 +207,15 @@ function getOptionsData() {
 
 // ────────────────────────────────────────────────────────────
 //  doGet — return shop status + full menu + options
+//          OR dashboard analytics (action=dashboard)
 // ────────────────────────────────────────────────────────────
 function doGet(e) {
   bootstrapSheets();
+  var params = (e && e.parameter) ? e.parameter : {};
+
+  if (params.action === 'dashboard') {
+    return corsOutput(getDashboardData(params));
+  }
 
   var cfg      = getConfig();
   var rawOpen  = cfg['shop_open'];
@@ -224,6 +230,310 @@ function doGet(e) {
   };
 
   return corsOutput(payload);
+}
+
+// ────────────────────────────────────────────────────────────
+//  DASHBOARD DATA — aggregated analytics from Orders sheet
+// ────────────────────────────────────────────────────────────
+function getDashboardData(params) {
+  var tz       = Session.getScriptTimeZone();
+  var now      = new Date();
+  var period   = String(params.period || 'today').trim();
+  var fromISO  = String(params.from   || '').trim();
+  var toISO    = String(params.to     || '').trim();
+  var todayStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+
+  // Resolve date range
+  if (period === 'today') {
+    fromISO = todayStr; toISO = todayStr;
+  } else if (period === 'week') {
+    var dw = new Date(now); dw.setDate(now.getDate() - 6);
+    fromISO = Utilities.formatDate(dw, tz, 'yyyy-MM-dd'); toISO = todayStr;
+  } else if (period === 'month') {
+    var dm = new Date(now.getFullYear(), now.getMonth(), 1);
+    fromISO = Utilities.formatDate(dm, tz, 'yyyy-MM-dd'); toISO = todayStr;
+  } else {
+    if (!fromISO) fromISO = todayStr;
+    if (!toISO)   toISO   = todayStr;
+  }
+
+  // Previous period (same span, immediately before)
+  var msFrom   = new Date(fromISO + 'T00:00:00').getTime();
+  var msTo     = new Date(toISO   + 'T00:00:00').getTime();
+  var spanMs   = msTo - msFrom + 86400000;
+  var spanDays = Math.round(spanMs / 86400000);
+  var prevToStr   = Utilities.formatDate(new Date(msFrom - 86400000), tz, 'yyyy-MM-dd');
+  var prevFromStr = Utilities.formatDate(new Date(msFrom - spanMs),   tz, 'yyyy-MM-dd');
+
+  var ss       = SpreadsheetApp.getActiveSpreadsheet();
+  var ordSheet = ss.getSheetByName('Orders');
+  if (!ordSheet) return _emptyDash(fromISO, toISO, period);
+
+  var raw = ordSheet.getDataRange().getValues();
+  if (raw.length < 2) return _emptyDash(fromISO, toISO, period);
+
+  var header = raw[0];
+  var col    = {};
+  header.forEach(function(h, i) { col[String(h).trim().toLowerCase()] = i; });
+
+  // Category lookup from Menu sheet (by id and name)
+  var catById = {}, catByName = {};
+  var menuSheet = ss.getSheetByName('Menu');
+  if (menuSheet) {
+    var mRaw = menuSheet.getDataRange().getValues();
+    var mc   = {};
+    mRaw[0].forEach(function(h, i) { mc[String(h).trim()] = i; });
+    mRaw.slice(1).forEach(function(row) {
+      var id  = String(row[mc['id']]      || '').trim();
+      var en  = String(row[mc['name_en']] || '').trim().toLowerCase();
+      var th  = String(row[mc['name_th']] || '').trim().toLowerCase();
+      var cat = String(row[mc['category']]|| '').trim().toLowerCase();
+      if (id)  catById[id]    = cat;
+      if (en)  catByName[en]  = cat;
+      if (th)  catByName[th]  = cat;
+    });
+  }
+
+  var rows = raw.slice(1).filter(function(r) {
+    return r[col['order_id']] && r[col['timestamp']];
+  });
+
+  function parseDate(r) {
+    var ts = r[col['timestamp']];
+    if (ts instanceof Date) {
+      return {
+        date: Utilities.formatDate(ts, tz, 'yyyy-MM-dd'),
+        hour: Utilities.formatDate(ts, tz, 'HH'),
+        dow:  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][ts.getDay()]
+      };
+    }
+    var s = String(ts || '');
+    var d = new Date(s);
+    return {
+      date: s.substring(0, 10),
+      hour: (s.substring(11, 13) || '00'),
+      dow:  isNaN(d.getTime()) ? 'Mon' : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]
+    };
+  }
+
+  function inRange(r, from, to) {
+    var d = parseDate(r).date;
+    return d >= from && d <= to;
+  }
+
+  function agg(rs) {
+    var rev = 0;
+    var orderMap = {}, custMap = {}, sellerMap = {}, optMap = {};
+    var hourMap  = {}, dateMap  = {}, heatMap  = {};
+
+    rs.forEach(function(r) {
+      var oid   = String(r[col['order_id']] || '').trim();
+      var total = parseFloat(r[col['total']]) || parseFloat(r[col['subtotal']]) || 0;
+      var cust  = String(r[col['customer_name']] || '').trim();
+      var dh    = parseDate(r);
+      if (!oid) return;
+
+      rev += total;
+      if (cust) custMap[cust] = (custMap[cust] || 0) + 1;
+
+      if (!orderMap[oid]) {
+        orderMap[oid] = { id: oid, customer: cust, total: total, time: dh.hour + ':00', items: [] };
+      }
+
+      // Parse items JSON
+      var items = [];
+      try { items = JSON.parse(String(r[col['items_json']] || '[]')); } catch(ex) {}
+      items.forEach(function(it) {
+        var iId     = String(it.id    || '').trim();
+        var iName   = String(it.name_en || it.name || '').trim();
+        var iNameTh = String(it.name_th || iName).trim();
+        var iQty    = parseInt(it.qty) || 1;
+        var iSub    = parseFloat(it.subtotal) || 0;
+        var iOpts   = String(it.optionsText || '').trim();
+        var iCat    = catById[iId] || catByName[iName.toLowerCase()] || catByName[iNameTh.toLowerCase()] || 'other';
+
+        orderMap[oid].items.push((iNameTh || iName) + (iQty > 1 ? ' ×' + iQty : ''));
+
+        var sk = iName || iNameTh;
+        if (sk) {
+          if (!sellerMap[sk]) sellerMap[sk] = { name: iName || iNameTh, name_th: iNameTh, category: iCat, qty: 0, revenue: 0 };
+          sellerMap[sk].qty     += iQty;
+          sellerMap[sk].revenue += iSub;
+        }
+
+        if (iOpts) {
+          iOpts.split(' | ').forEach(function(seg) {
+            var ps  = seg.split(': ');
+            if (ps.length < 2) return;
+            var lbl = ps[0].trim();
+            var val = ps.slice(1).join(': ').trim();
+            var p   = val.indexOf('(');
+            if (p > 0) val = val.substring(0, p).trim();
+            if (!lbl || !val) return;
+            if (!optMap[lbl]) optMap[lbl] = {};
+            optMap[lbl][val] = (optMap[lbl][val] || 0) + iQty;
+          });
+        }
+      });
+
+      var hk = dh.hour.padStart(2, '0');
+      var dk = dh.date;
+      if (!hourMap[hk]) hourMap[hk] = { rev: 0, orders: 0, seen: {} };
+      hourMap[hk].rev += total;
+      if (!hourMap[hk].seen[oid]) { hourMap[hk].seen[oid] = 1; hourMap[hk].orders++; }
+
+      if (!dateMap[dk]) dateMap[dk] = { rev: 0, orders: 0, seen: {} };
+      dateMap[dk].rev += total;
+      if (!dateMap[dk].seen[oid]) { dateMap[dk].seen[oid] = 1; dateMap[dk].orders++; }
+
+      var heatKey = dh.dow + '_' + hk;
+      if (!heatMap[heatKey]) heatMap[heatKey] = { rev: 0, orders: 0 };
+      heatMap[heatKey].rev    += total;
+      heatMap[heatKey].orders += 1;
+    });
+
+    var orderCount = Object.keys(orderMap).length;
+    var custCount  = Object.keys(custMap).length;
+
+    var recent = Object.values(orderMap)
+      .sort(function(a, b) { return a.id > b.id ? -1 : 1; })
+      .slice(0, 20)
+      .map(function(o) {
+        return { id: o.id, customer: o.customer || '-', items: o.items.join(', '), total: Math.round(o.total), time: o.time };
+      });
+
+    var sellers = Object.values(sellerMap)
+      .sort(function(a, b) { return b.revenue - a.revenue; })
+      .slice(0, 10);
+
+    var options = Object.keys(optMap).map(function(lbl) {
+      var counts = optMap[lbl];
+      var total2 = Object.values(counts).reduce(function(s, c) { return s + c; }, 0) || 1;
+      var segs   = Object.keys(counts).map(function(v) {
+        return { name: v, count: counts[v], pct: Math.round(counts[v] / total2 * 100) };
+      }).sort(function(a, b) { return b.count - a.count; });
+      return { label: lbl, segs: segs };
+    });
+
+    var topCust = Object.keys(custMap)
+      .map(function(n) { return { name: n, orders: custMap[n] }; })
+      .sort(function(a, b) { return b.orders - a.orders; })
+      .slice(0, 8);
+
+    return { revenue: Math.round(rev), orders: orderCount, customers: custCount,
+             avg_basket: orderCount > 0 ? Math.round(rev / orderCount) : 0,
+             sellers: sellers, recent: recent, top_customers: topCust, options: options,
+             hourMap: hourMap, dateMap: dateMap, heatMap: heatMap };
+  }
+
+  var cur  = agg(rows.filter(function(r) { return inRange(r, fromISO, toISO); }));
+  var prev = agg(rows.filter(function(r) { return inRange(r, prevFromStr, prevToStr); }));
+
+  // Today data (for hours-of-day card — always today regardless of period)
+  var todayData = (fromISO === todayStr && toISO === todayStr) ? cur
+                : agg(rows.filter(function(r) { return inRange(r, todayStr, todayStr); }));
+
+  // Last-7-day data for heatmap
+  var last7Start = Utilities.formatDate(new Date(now.getTime() - 6 * 86400000), tz, 'yyyy-MM-dd');
+  var last7Data  = (fromISO === last7Start && toISO === todayStr) ? cur
+                 : agg(rows.filter(function(r) { return inRange(r, last7Start, todayStr); }));
+
+  // Time series
+  var isHourly = (fromISO === toISO);
+  var series = [], prevSeries = [];
+
+  if (isHourly) {
+    for (var h = 8; h <= 22; h++) {
+      var hk2 = String(h).padStart(2, '0');
+      series.push({ label: hk2 + ':00', revenue: (cur.hourMap[hk2] || {}).rev || 0, orders: (cur.hourMap[hk2] || {}).orders || 0 });
+      prevSeries.push({ label: hk2 + ':00', revenue: (prev.hourMap[hk2] || {}).rev || 0, orders: (prev.hourMap[hk2] || {}).orders || 0 });
+    }
+  } else {
+    var dt = new Date(fromISO + 'T12:00:00');
+    var endDt = new Date(toISO + 'T12:00:00');
+    while (dt <= endDt) {
+      var dKey   = Utilities.formatDate(dt, tz, 'yyyy-MM-dd');
+      var label  = Utilities.formatDate(dt, tz, 'MM/dd');
+      var prevDt = new Date(dt.getTime() - spanDays * 86400000);
+      var pdKey  = Utilities.formatDate(prevDt, tz, 'yyyy-MM-dd');
+      series.push({ label: label, revenue: (cur.dateMap[dKey] || {}).rev || 0, orders: (cur.dateMap[dKey] || {}).orders || 0 });
+      prevSeries.push({ label: label, revenue: (prev.dateMap[pdKey] || {}).rev || 0, orders: (prev.dateMap[pdKey] || {}).orders || 0 });
+      dt.setDate(dt.getDate() + 1);
+    }
+  }
+
+  // Today hourly for period-of-day card
+  var todayHourly = [];
+  for (var h3 = 8; h3 <= 22; h3++) {
+    var hk3 = String(h3).padStart(2, '0');
+    todayHourly.push({ h: h3, label: hk3 + ':00', revenue: (todayData.hourMap[hk3] || {}).rev || 0, orders: (todayData.hourMap[hk3] || {}).orders || 0 });
+  }
+
+  // Heatmap (last 7 days, day-of-week × hour)
+  var heatDays  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var heatHours = [];
+  for (var hh = 8; hh <= 21; hh++) heatHours.push(hh);
+  var maxHeatRev = 1;
+  heatDays.forEach(function(day) {
+    heatHours.forEach(function(h4) {
+      var k = day + '_' + String(h4).padStart(2, '0');
+      var b = last7Data.heatMap[k] || { rev: 0 };
+      if (b.rev > maxHeatRev) maxHeatRev = b.rev;
+    });
+  });
+  var heatData = heatDays.map(function(day) {
+    return {
+      day: day,
+      cells: heatHours.map(function(h4) {
+        var k = day + '_' + String(h4).padStart(2, '0');
+        var b = last7Data.heatMap[k] || { rev: 0, orders: 0 };
+        var val = b.rev > 0 ? Math.max(1, Math.min(6, Math.ceil(b.rev / maxHeatRev * 6))) : 0;
+        return { h: h4, val: val, orders: b.orders };
+      })
+    };
+  });
+
+  // 7-day basket trend
+  var basketTrend = [];
+  for (var bd = 6; bd >= 0; bd--) {
+    var bDStr = Utilities.formatDate(new Date(now.getTime() - bd * 86400000), tz, 'yyyy-MM-dd');
+    var bBuck = cur.dateMap[bDStr] || last7Data.dateMap[bDStr] || null;
+    basketTrend.push(bBuck && bBuck.orders > 0 ? Math.round(bBuck.rev / bBuck.orders) : 0);
+  }
+
+  return {
+    revenue: cur.revenue, prev_revenue: prev.revenue,
+    orders:  cur.orders,  prev_orders:  prev.orders,
+    avg_basket: cur.avg_basket, prev_avg_basket: prev.avg_basket,
+    customers:  cur.customers,  prev_customers:  prev.customers,
+    sellers:     cur.sellers,
+    recent:      cur.recent,
+    top_customers: cur.top_customers,
+    options:     cur.options,
+    series:      series,
+    prev_series: prevSeries,
+    today_hourly: todayHourly,
+    heatmap: { days: heatDays, hours: heatHours, data: heatData },
+    basket_trend: basketTrend,
+    period: period, from: fromISO, to: toISO,
+    generated_at: Utilities.formatDate(now, tz, 'yyyy-MM-dd HH:mm:ss')
+  };
+}
+
+function _emptyDash(from, to, period) {
+  var hours = [];
+  for (var h = 8; h <= 22; h++) {
+    hours.push({ label: String(h).padStart(2,'0') + ':00', revenue: 0, orders: 0 });
+  }
+  return {
+    revenue: 0, prev_revenue: 0, orders: 0, prev_orders: 0,
+    avg_basket: 0, prev_avg_basket: 0, customers: 0, prev_customers: 0,
+    sellers: [], recent: [], top_customers: [], options: [],
+    series: hours, prev_series: hours, today_hourly: hours,
+    heatmap: { days: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], hours: [8,9,10,11,12,13,14,15,16,17,18,19,20,21], data: [] },
+    basket_trend: [0,0,0,0,0,0,0],
+    period: period, from: from, to: to, generated_at: ''
+  };
 }
 
 // ────────────────────────────────────────────────────────────

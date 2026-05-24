@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glongnom — Sales Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..900,0..100&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brown-900:#2a1810; --brown-800:#3d2418; --brown-700:#5b3a2a;
+    --brown-600:#6e4a36; --brown-500:#8a6a58; --brown-400:#a88876;
+    --brown-300:#b8a094; --brown-200:#d6c4b8;
+    --pink-50:#fbf1ec;  --pink-100:#f6e0dc; --pink-200:#efc8c3;
+    --pink-300:#e5a8a2; --pink-400:#d68983; --pink-500:#b85d57;
+    --rose-700:#7a2e2a;
+    --cream:#faf5ee; --cream-2:#f3ebde; --off-white:#fefbf6;
+    --green-500:#5e7d3a; --green-700:#3f5a23; --amber-500:#c8893b;
+    --line:rgba(61,36,24,0.10); --line-2:rgba(61,36,24,0.20);
+    --shadow-sm:0 1px 2px rgba(61,36,24,0.05),0 2px 6px rgba(61,36,24,0.04);
+    --shadow-md:0 6px 20px rgba(61,36,24,0.08);
+    --r-sm:10px; --r-md:14px; --r-lg:22px; --r-pill:999px;
+    --serif:'Fraunces',serif; --sans:'IBM Plex Sans',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --accent:var(--pink-500);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--off-white);color:var(--brown-800);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;background:radial-gradient(1200px 600px at 90% -10%,var(--pink-100),transparent 60%),radial-gradient(900px 500px at -10% 30%,#f4e7d6,transparent 55%),var(--off-white)}
+  button{font-family:inherit;cursor:pointer}
+  ::selection{background:var(--pink-300);color:var(--brown-900)}
+  .app{max-width:1440px;margin:0 auto;padding:24px 28px 80px}
+
+  /* TOPBAR */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:6px 0 22px;border-bottom:1px solid var(--line);margin-bottom:22px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand-mark{width:44px;height:44px;border-radius:50%;background:var(--brown-800);color:var(--pink-100);display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-weight:500;font-size:24px;box-shadow:inset 0 0 0 2px var(--off-white),inset 0 0 0 3px var(--brown-800)}
+  .brand-text{line-height:1.05}
+  .brand-text .name{font-family:var(--serif);font-weight:400;font-style:italic;font-size:22px;color:var(--brown-900);letter-spacing:-0.01em}
+  .brand-text .sub{font-size:10.5px;letter-spacing:0.22em;text-transform:uppercase;color:var(--brown-500);margin-top:2px;font-family:var(--mono)}
+  .crumb{margin-left:22px;padding-left:22px;border-left:1px solid var(--line);line-height:1.1}
+  .crumb .k{font-family:var(--mono);font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:var(--brown-500)}
+  .crumb .v{font-family:var(--serif);font-size:20px;color:var(--brown-900);margin-top:2px;font-style:italic;font-weight:400}
+  .topbar-right{display:flex;align-items:center;gap:10px}
+  .live{display:inline-flex;align-items:center;gap:8px;background:var(--cream);border:1px solid var(--line);padding:7px 13px 7px 10px;border-radius:var(--r-pill);font-size:12px;color:var(--brown-700);font-family:var(--mono);letter-spacing:0.05em;text-transform:uppercase}
+  .live .pulse{width:8px;height:8px;border-radius:50%;background:var(--green-500);box-shadow:0 0 0 0 rgba(94,125,58,0.5);animation:pulse 1.8s ease-out infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(94,125,58,0.55)}70%{box-shadow:0 0 0 10px rgba(94,125,58,0)}100%{box-shadow:0 0 0 0 rgba(94,125,58,0)}}
+  .clock{font-family:var(--mono);font-size:13px;color:var(--brown-700);padding:7px 14px;background:var(--cream);border:1px solid var(--line);border-radius:var(--r-pill);font-variant-numeric:tabular-nums}
+  .seg{display:inline-flex;background:var(--cream);border:1px solid var(--line);padding:4px;border-radius:var(--r-pill);gap:2px;box-shadow:var(--shadow-sm)}
+  .seg-wrap{position:relative}
+  .seg button{border:0;background:transparent;color:var(--brown-700);padding:7px 14px;border-radius:var(--r-pill);font-size:12.5px;font-weight:500;letter-spacing:0.02em;white-space:nowrap;transition:background .2s,color .2s}
+  .seg button:hover{color:var(--brown-900)}
+  .seg button.active{background:var(--brown-800);color:var(--pink-100)}
+
+  /* RANGE PICKER */
+  .rp-pop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--off-white);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:0 16px 40px rgba(61,36,24,0.18);padding:16px;z-index:50;animation:rp-in .18s ease both}
+  @keyframes rp-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+  .rp-head{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:0.22em;color:var(--brown-500);margin-bottom:12px}
+  .rp-x{width:22px;height:22px;border:0;background:transparent;color:var(--brown-700);border-radius:50%;font-size:16px;line-height:1;cursor:pointer}
+  .rp-x:hover{background:var(--cream-2)}
+  .rp-presets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
+  .rp-preset{border:1px solid var(--line);background:var(--cream);color:var(--brown-700);padding:8px 4px;border-radius:var(--r-pill);font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:0.02em;transition:all .15s}
+  .rp-preset:hover{border-color:var(--brown-500);color:var(--brown-900)}
+  .rp-preset.active{background:var(--brown-800);color:var(--pink-100);border-color:var(--brown-800)}
+  .rp-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+  .rp-fields label{display:flex;flex-direction:column;gap:5px}
+  .rp-fields span{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.18em;color:var(--brown-500)}
+  .rp-fields input{background:var(--cream);border:1px solid var(--line);border-radius:var(--r-md);padding:9px 11px;font-family:var(--mono);font-size:12.5px;color:var(--brown-900);outline:none;width:100%}
+  .rp-fields input:focus{border-color:var(--brown-500);background:var(--off-white)}
+  .rp-foot{display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px dashed var(--line)}
+  .rp-count{font-family:var(--mono);font-size:11px;color:var(--brown-500);letter-spacing:0.06em}
+  .rp-apply{border:0;background:var(--brown-800);color:var(--pink-100);padding:9px 18px;border-radius:var(--r-pill);font-size:12.5px;font-weight:500;cursor:pointer;letter-spacing:0.02em}
+  .rp-apply:hover{background:var(--brown-900)}
+
+  /* GRID */
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
+  .card{background:var(--off-white);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px;position:relative}
+  .card.tinted{background:linear-gradient(180deg,var(--cream) 0%,var(--off-white) 60%)}
+  .card-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+  .card-title{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.22em;color:var(--brown-500)}
+  .card-link{font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.18em;color:var(--brown-500);cursor:pointer;border:0;background:transparent}
+  .card-link:hover{color:var(--brown-900)}
+  .col-3{grid-column:span 3}.col-4{grid-column:span 4}.col-5{grid-column:span 5}
+  .col-6{grid-column:span 6}.col-7{grid-column:span 7}.col-8{grid-column:span 8}
+  .col-9{grid-column:span 9}.col-12{grid-column:span 12}
+
+  /* KPI */
+  .kpi{padding:18px 20px}
+  .kpi .v{font-family:var(--serif);font-weight:400;font-size:38px;color:var(--brown-900);line-height:1.05;letter-spacing:-0.02em;display:flex;align-items:baseline;gap:6px;font-variant-numeric:tabular-nums;margin:6px 0 8px}
+  .kpi .v .unit{font-family:var(--mono);font-size:14px;color:var(--brown-500);font-style:normal;letter-spacing:0.06em}
+  .kpi .v em{font-style:italic;font-weight:400;color:var(--rose-700)}
+  .kpi .row{display:flex;align-items:center;gap:8px}
+  .delta{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:var(--r-pill);font-family:var(--mono);font-size:11.5px;font-weight:500}
+  .delta.up{background:rgba(94,125,58,0.10);color:var(--green-700)}
+  .delta.down{background:rgba(184,93,87,0.10);color:var(--pink-500)}
+  .delta.flat{background:rgba(61,36,24,0.06);color:var(--brown-500)}
+  .kpi .vs{font-size:11.5px;color:var(--brown-500);font-family:var(--mono)}
+  .spark{margin-top:12px}
+
+  /* REVENUE CHART */
+  .revcard .totals{display:flex;align-items:baseline;gap:18px;margin:4px 0 14px;flex-wrap:wrap}
+  .revcard .totals .big{font-family:var(--serif);font-size:40px;line-height:1;color:var(--brown-900);font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+  .revcard .totals .big .unit{font-family:var(--mono);font-size:15px;color:var(--brown-500);margin-left:4px}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--brown-700)}
+  .legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+  .legend .dot.now{background:var(--pink-500)}.legend .dot.prev{background:var(--brown-300)}
+  .chart-wrap{position:relative}
+  .chart-axis{display:flex;justify-content:space-between;margin-top:6px;font-family:var(--mono);font-size:10.5px;color:var(--brown-500);letter-spacing:0.06em}
+
+  /* LIVE FEED */
+  .live-feed{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:hidden;position:relative}
+  .live-feed::after{content:'';position:absolute;left:0;right:0;bottom:0;height:50px;background:linear-gradient(180deg,transparent,var(--off-white));pointer-events:none}
+  .order{display:grid;grid-template-columns:36px 1fr auto;gap:10px;padding:10px 12px;background:var(--cream);border:1px solid var(--line);border-radius:var(--r-md);align-items:center;animation:order-in .4s cubic-bezier(.2,.8,.2,1) both}
+  .order.fresh{background:var(--pink-50);border-color:var(--pink-200)}
+  @keyframes order-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+  .order .av{width:36px;height:36px;border-radius:50%;background:var(--pink-200);color:var(--brown-900);display:grid;place-items:center;font-family:var(--serif);font-size:14px;font-style:italic}
+  .order .av.b{background:#cfe1aa;color:var(--green-700)}.order .av.c{background:#efd9b5;color:var(--brown-800)}.order .av.d{background:var(--pink-300);color:var(--rose-700)}
+  .order .body{min-width:0}
+  .order .o-id{font-family:var(--mono);font-size:10.5px;color:var(--brown-500);text-transform:uppercase;letter-spacing:0.18em}
+  .order .o-name{font-family:var(--serif);font-size:14.5px;color:var(--brown-900);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .order .o-items{font-size:11.5px;color:var(--brown-500);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .order .o-right{text-align:right}
+  .order .o-amt{font-family:var(--mono);font-size:13px;color:var(--brown-900);font-weight:500}
+  .order .o-time{font-family:var(--mono);font-size:10.5px;color:var(--brown-500);margin-top:2px}
+
+  /* TOP SELLERS */
+  .seller-row{display:grid;grid-template-columns:28px 1fr auto;gap:10px;padding:9px 0;align-items:center;border-bottom:1px dashed var(--line)}
+  .seller-row:last-child{border-bottom:0}
+  .seller-rank{font-family:var(--mono);font-size:11px;color:var(--brown-500);width:28px}
+  .seller-name{font-family:var(--serif);font-size:14.5px;color:var(--brown-900);line-height:1.15}
+  .seller-bar{height:6px;background:rgba(61,36,24,0.06);border-radius:3px;margin-top:6px;overflow:hidden}
+  .seller-bar .fill{height:100%;background:linear-gradient(90deg,var(--pink-400),var(--pink-500));border-radius:3px;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+  .seller-bar .fill.alt{background:linear-gradient(90deg,#bcd28f,#8aaa5a)}.seller-bar .fill.alt2{background:linear-gradient(90deg,#e8c79a,var(--amber-500))}
+  .seller-right{text-align:right;line-height:1.15}
+  .seller-right .amt{font-family:var(--mono);font-size:12.5px;color:var(--brown-900);font-weight:500}
+  .seller-right .qty{font-family:var(--mono);font-size:10.5px;color:var(--brown-500);margin-top:2px}
+
+  /* OPTIONS */
+  .opt-block{margin-bottom:16px}.opt-block:last-child{margin-bottom:0}
+  .opt-block .h{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:0.18em;color:var(--brown-500);margin-bottom:8px}
+  .opt-block .h .top{color:var(--brown-900)}
+  .stack-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:rgba(61,36,24,0.06)}
+  .stack-bar .seg-fill{transition:width .6s cubic-bezier(.2,.8,.2,1);position:relative}
+  .stack-bar .seg-fill+.seg-fill{border-left:1.5px solid var(--off-white)}
+  .opt-legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:8px;font-size:11.5px;color:var(--brown-700)}
+  .opt-legend .lg{display:inline-flex;align-items:center;gap:6px}
+  .opt-legend .lg .d{width:8px;height:8px;border-radius:2px}
+  .opt-legend .pct{font-family:var(--mono);font-size:11px;color:var(--brown-500);margin-left:4px}
+
+  /* HEATMAP */
+  .heat{display:grid;grid-template-columns:36px repeat(14,1fr);gap:4px;align-items:center}
+  .heat .h-lbl{font-family:var(--mono);font-size:10px;color:var(--brown-500);text-transform:uppercase;letter-spacing:0.12em;text-align:right;padding-right:6px}
+  .heat .cell{aspect-ratio:1/1;border-radius:5px;background:rgba(61,36,24,0.04);position:relative;transition:transform .15s}
+  .heat .cell:hover{transform:scale(1.15);z-index:2;outline:1.5px solid var(--brown-700)}
+  .heat .cell[data-v="1"]{background:var(--pink-50)}.heat .cell[data-v="2"]{background:var(--pink-100)}.heat .cell[data-v="3"]{background:var(--pink-200)}
+  .heat .cell[data-v="4"]{background:var(--pink-300)}.heat .cell[data-v="5"]{background:var(--pink-400)}.heat .cell[data-v="6"]{background:var(--pink-500)}
+  .heat-x{display:grid;grid-template-columns:36px repeat(14,1fr);gap:4px;font-family:var(--mono);font-size:10px;color:var(--brown-500);margin-top:6px;letter-spacing:0.06em}
+  .heat-x span{text-align:center}
+  .heat-legend{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;color:var(--brown-500);margin-top:14px}
+  .heat-legend .scale{display:inline-flex;gap:3px}
+  .heat-legend .scale span{width:14px;height:14px;border-radius:3px}
+  .tooltip{position:absolute;background:var(--brown-900);color:var(--off-white);padding:6px 10px;border-radius:6px;font-family:var(--mono);font-size:10.5px;white-space:nowrap;z-index:10;pointer-events:none;transform:translate(-50%,-110%);box-shadow:var(--shadow-md)}
+  .tooltip::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%) rotate(45deg);width:8px;height:8px;background:var(--brown-900)}
+
+  /* TOP CUSTOMERS */
+  .cust-table{width:100%;border-collapse:collapse}
+  .cust-table th{text-align:left;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:0.18em;color:var(--brown-500);font-weight:500;padding:8px 6px;border-bottom:1px solid var(--line)}
+  .cust-table th.r,.cust-table td.r{text-align:right}
+  .cust-table td{padding:12px 6px;border-bottom:1px dashed var(--line);font-size:13.5px;color:var(--brown-800);vertical-align:middle}
+  .cust-table tr:last-child td{border-bottom:0}
+  .cust-cell{display:flex;align-items:center;gap:10px}
+  .cust-cell .av{width:34px;height:34px;border-radius:50%;background:var(--pink-200);display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-size:14px;color:var(--brown-900);flex-shrink:0}
+  .cust-cell .nm{font-family:var(--serif);font-size:15px;color:var(--brown-900);line-height:1.1}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;color:var(--brown-900)}
+
+  /* CATEGORY MIX */
+  .mix-wrap{display:grid;grid-template-columns:130px 1fr;gap:18px;align-items:center}
+  .mix-rows{display:flex;flex-direction:column;gap:10px}
+  .mix-row{display:grid;grid-template-columns:12px 1fr auto;gap:10px;align-items:center;font-size:13px}
+  .mix-row .sw{width:12px;height:12px;border-radius:3px}
+  .mix-row .nm{color:var(--brown-800);font-family:var(--serif);font-size:14px}
+  .mix-row .num{font-family:var(--mono);font-size:12.5px;color:var(--brown-700)}
+
+  /* AVG BASKET */
+  .basket-stats{display:flex;gap:22px;align-items:baseline;margin-bottom:6px}
+  .basket-stats .v{font-family:var(--serif);font-size:34px;color:var(--brown-900);letter-spacing:-0.02em;font-variant-numeric:tabular-nums;line-height:1}
+  .basket-stats .v .unit{font-family:var(--mono);font-size:13px;color:var(--brown-500);margin-left:4px}
+
+  /* HOURS BREAKDOWN */
+  .hours-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+  .hour-pill{border:1px solid var(--line);border-radius:var(--r-md);padding:10px 12px;background:var(--cream)}
+  .hour-pill .t{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.18em;color:var(--brown-500)}
+  .hour-pill .a{font-family:var(--serif);font-size:18px;color:var(--brown-900);margin-top:4px;line-height:1;font-variant-numeric:tabular-nums}
+  .hour-pill .a .unit{font-family:var(--mono);font-size:11px;color:var(--brown-500);margin-left:2px}
+  .hour-pill .o{font-family:var(--mono);font-size:11px;color:var(--brown-500);margin-top:2px}
+  .hour-pill.best{background:var(--pink-100);border-color:var(--pink-300)}
+
+  /* FOOTER */
+  .foot{margin-top:32px;padding-top:18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--brown-500);display:flex;justify-content:space-between;letter-spacing:0.12em;text-transform:uppercase}
+
+  /* LOADING / EMPTY */
+  .skel{background:linear-gradient(90deg,rgba(61,36,24,0.06) 25%,rgba(61,36,24,0.10) 50%,rgba(61,36,24,0.06) 75%);background-size:200% 100%;animation:skel .9s ease-in-out infinite;border-radius:8px}
+  @keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  .empty-msg{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:10px;color:var(--brown-400);text-align:center}
+  .empty-msg .em-icon{font-size:32px;opacity:0.4}
+  .empty-msg .em-text{font-family:var(--serif);font-size:18px;font-style:italic;color:var(--brown-500)}
+  .empty-msg .em-sub{font-family:var(--mono);font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase}
+
+  /* TWEAKS PANEL */
+  .twk-gear{position:fixed;bottom:20px;right:20px;z-index:100;width:38px;height:38px;border-radius:50%;background:var(--brown-800);color:var(--pink-100);border:0;font-size:16px;display:grid;place-items:center;box-shadow:var(--shadow-md);transition:background .15s}
+  .twk-gear:hover{background:var(--brown-900)}
+  .twk-panel{position:fixed;right:16px;bottom:68px;z-index:99;width:268px;background:rgba(250,249,247,.88);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.5);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.18);font:11.5px/1.4 var(--sans);overflow:hidden}
+  .twk-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px 10px 16px;border-bottom:1px solid rgba(0,0,0,.06)}
+  .twk-head b{font-size:12px;font-weight:600}
+  .twk-body{padding:12px 16px 16px;display:flex;flex-direction:column;gap:12px}
+  .twk-row{display:flex;flex-direction:column;gap:5px}
+  .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between}
+  .twk-lbl{color:rgba(41,38,27,.72);font-weight:500;font-size:11.5px}
+  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;background:rgba(0,0,0,.15);transition:background .15s;cursor:pointer;padding:0;flex-shrink:0}
+  .twk-toggle[data-on="1"]{background:#34c759}
+  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+  .twk-toggle[data-on="1"] i{transform:translateX(14px)}
+  .twk-chips{display:flex;gap:6px}
+  .twk-chip{flex:1;height:22px;border-radius:6px;border:1px solid var(--line);background:var(--cream);cursor:pointer;font:inherit;font-size:11px;color:var(--brown-700);transition:all .12s}
+  .twk-chip.on{background:var(--brown-800);color:var(--pink-100);border-color:var(--brown-800)}
+  .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(41,38,27,.4);padding-top:4px}
+
+  @media(max-width:1100px){.col-3,.col-4,.col-5,.col-7,.col-8,.col-9{grid-column:span 6}.col-6{grid-column:span 12}}
+  @media(max-width:720px){.col-3,.col-4,.col-5,.col-6,.col-7,.col-8,.col-9{grid-column:span 12}.crumb{display:none}.app{padding:16px 14px 60px}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel">
+// ─────────────────────────────────────────────────────────────
+//  CONFIG — replace with your deployed Apps Script URL
+// ─────────────────────────────────────────────────────────────
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbxhvDgSZEpctEJVwp4-MfEymSrqLOsxFuu4m6x0alGpMnbbXby2ZmAVbBu14Y3qoHqu3A/exec';
+
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+// ─── Formatters ───────────────────────────────────────────────
+const fmt      = (n) => Math.round(n || 0).toLocaleString('en-US');
+const fmtM     = (n) => '฿' + Math.round(n || 0).toLocaleString('en-US');
+const fmtK     = (n) => (n||0) >= 1000 ? ((n||0)/1000).toFixed(1)+'k' : Math.round(n||0);
+const pctDelta = (cur, prev) => prev > 0 ? ((cur - prev) / prev * 100) : (cur > 0 ? 100 : 0);
+
+// ─── Date helpers ─────────────────────────────────────────────
+function toISO(d) {
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
+}
+function daysBetween(a, b) {
+  return Math.max(1, Math.round((new Date(b) - new Date(a)) / 86400000) + 1);
+}
+function customRangeShort(r) {
+  const f = new Date(r.from), t = new Date(r.to), days = daysBetween(r.from, r.to);
+  if (toISO(t) === toISO(new Date()) && days > 1) return 'Last ' + days + 'd';
+  if (days === 1) return f.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const sm = f.getMonth()===t.getMonth() && f.getFullYear()===t.getFullYear();
+  return sm ? f.toLocaleDateString('en-US',{month:'short',day:'numeric'})+'–'+t.getDate()
+            : f.toLocaleDateString('en-US',{month:'short',day:'numeric'})+'–'+t.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+function periodTitle(p, now, cr) {
+  if (p === 'today') return now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  if (p === 'week')  return 'Last 7 days';
+  if (p === 'month') return now.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  if (!cr) return 'Custom range';
+  const f = new Date(cr.from), t = new Date(cr.to), opts = {month:'short',day:'numeric'};
+  return f.toLocaleDateString('en-US',opts)+' – '+t.toLocaleDateString('en-US',{...opts,year:'numeric'});
+}
+function fmtClock(d) {
+  return d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ─── Option color palette ──────────────────────────────────────
+const OPT_PAL = ['#efc8c3','#d68983','#b85d57','#7a2e2a','#3d2418','#e8d4a8','#c8a578','#8a6a58','#bcd28f','#8aaa5a','#5e7d3a'];
+const CAT_COLORS = { matcha:'#8aaa5a', drinks:'#c8893b', rice:'#b85d57', other:'#b8a094' };
+
+// ─── Avatar color assignment ───────────────────────────────────
+const AV_CLASSES = ['','b','c','d'];
+function avCls(name) { return AV_CLASSES[(name||'').charCodeAt(0) % 4]; }
+
+// =============================================================================
+//  CHART PRIMITIVES
+// =============================================================================
+
+function Sparkline({ data, color='var(--brown-700)', height=36 }) {
+  const max = Math.max(...data, 1), min = Math.min(...data, 0), range = max-min||1;
+  const W = 200;
+  const pts = data.map((v,i) => [i/(data.length-1)*W, height-(v-min)/range*(height-4)-2]);
+  const d = pts.map((p,i) => (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const da = d+` L ${W} ${height} L 0 ${height} Z`;
+  const id = 'spk'+color.replace(/[^a-z0-9]/gi,'');
+  return (
+    <svg width="100%" height={height} viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none">
+      <defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={color} stopOpacity="0.22"/>
+        <stop offset="100%" stopColor={color} stopOpacity="0"/>
+      </linearGradient></defs>
+      <path d={da} fill={`url(#${id})`}/>
+      <path d={d} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function AreaChart({ now, prev, labels, height=240 }) {
+  const [hover, setHover] = useState(null);
+  const W=900, H=height, padX=14, padY=14;
+  const max = Math.max(...now, ...prev, 1);
+  const iW = W-padX*2, iH = H-padY*2-14;
+  const x = (i,n) => padX + i/(n-1)*iW;
+  const y = (v) => padY + iH - v/max*iH;
+  const path = (arr) => arr.map((v,i) => (i?'L':'M')+x(i,arr.length).toFixed(1)+' '+y(v).toFixed(1)).join(' ');
+  const area = (arr) => path(arr)+` L ${x(arr.length-1,arr.length)} ${padY+iH} L ${padX} ${padY+iH} Z`;
+  const grid = [0,0.25,0.5,0.75,1].map(p => padY+iH-p*iH);
+  return (
+    <div className="chart-wrap">
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{display:'block'}} onMouseLeave={()=>setHover(null)}>
+        <defs><linearGradient id="rev-now" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--pink-500)" stopOpacity="0.35"/>
+          <stop offset="100%" stopColor="var(--pink-500)" stopOpacity="0"/>
+        </linearGradient></defs>
+        {grid.map((gy,i) => <line key={i} x1={padX} y1={gy} x2={W-padX} y2={gy} stroke="rgba(61,36,24,0.08)" strokeDasharray={i===grid.length-1?'0':'3 4'}/>)}
+        {[1,0.5,0].map((p,i) => <text key={i} x={W-padX-4} y={padY+iH-p*iH-4} textAnchor="end" fontSize="10" fontFamily="JetBrains Mono" fill="var(--brown-500)">{fmtM(max*p)}</text>)}
+        <path d={path(prev)} fill="none" stroke="var(--brown-300)" strokeWidth="1.6" strokeDasharray="4 4"/>
+        <path d={area(now)} fill="url(#rev-now)"/>
+        <path d={path(now)} fill="none" stroke="var(--pink-500)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+        {now.map((_,i) => <rect key={i} x={x(i,now.length)-iW/(now.length*2)} y={padY} width={iW/now.length} height={iH} fill="transparent" onMouseEnter={()=>setHover(i)}/>)}
+        {hover!=null && <g>
+          <line x1={x(hover,now.length)} y1={padY} x2={x(hover,now.length)} y2={padY+iH} stroke="var(--brown-700)" strokeWidth="1" strokeDasharray="3 3"/>
+          <circle cx={x(hover,now.length)} cy={y(now[hover])} r="5" fill="var(--pink-500)" stroke="var(--off-white)" strokeWidth="2"/>
+          <circle cx={x(hover,now.length)} cy={y(prev[hover])} r="3.5" fill="var(--brown-300)" stroke="var(--off-white)" strokeWidth="2"/>
+        </g>}
+      </svg>
+      {hover!=null && <div className="tooltip" style={{left:`${x(hover,now.length)/W*100}%`,top:'14px'}}>
+        {labels[hover]} · {fmtM(now[hover])} <span style={{opacity:0.6}}>vs {fmtM(prev[hover])}</span>
+      </div>}
+      <div className="chart-axis">{labels.filter((_,i)=>i%Math.ceil(labels.length/8)===0).map((l,i)=><span key={i}>{l}</span>)}</div>
+    </div>
+  );
+}
+
+function Donut({ segments, size=130, thick=18, centerLabel, centerValue }) {
+  const total = segments.reduce((s,x)=>s+x.value,0)||1;
+  const r=(size-thick)/2, c=size/2, circ=2*Math.PI*r;
+  let offset=0;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={c} cy={c} r={r} fill="none" stroke="rgba(61,36,24,0.06)" strokeWidth={thick}/>
+      {segments.map((s,i) => {
+        const frac=s.value/total, len=frac*circ;
+        const el = <circle key={i} cx={c} cy={c} r={r} fill="none" stroke={s.color} strokeWidth={thick} strokeDasharray={`${len} ${circ-len}`} strokeDashoffset={-offset} transform={`rotate(-90 ${c} ${c})`} style={{transition:'stroke-dasharray .8s cubic-bezier(.2,.8,.2,1)'}}/>;
+        offset+=len; return el;
+      })}
+      <text x={c} y={c-4} textAnchor="middle" fontFamily="Fraunces" fontStyle="italic" fontSize="22" fill="var(--brown-900)">{centerValue}</text>
+      <text x={c} y={c+14} textAnchor="middle" fontFamily="JetBrains Mono" fontSize="9" letterSpacing="0.18em" fill="var(--brown-500)">{centerLabel}</text>
+    </svg>
+  );
+}
+
+// =============================================================================
+//  CARDS
+// =============================================================================
+
+function KpiCard({ label, value, unit, deltaPct, sub, spark, sparkColor, italicValue, className='col-3' }) {
+  const dir = deltaPct > 0.5 ? 'up' : deltaPct < -0.5 ? 'down' : 'flat';
+  return (
+    <div className={'card kpi tinted '+className}>
+      <div className="card-head"><div className="card-title">{label}</div></div>
+      <div className="v">
+        {italicValue ? <em>{value}</em> : value}
+        {unit && <span className="unit">{unit}</span>}
+      </div>
+      <div className="row">
+        <span className={'delta '+dir}>{dir==='up'?'↑':dir==='down'?'↓':'—'} {Math.abs(deltaPct).toFixed(1)}%</span>
+        <span className="vs">{sub}</span>
+      </div>
+      {spark && <div className="spark"><Sparkline data={spark} color={sparkColor||'var(--pink-500)'} height={36}/></div>}
+    </div>
+  );
+}
+
+function LiveOrders({ feed, loading }) {
+  if (loading) return (
+    <div className="card">
+      <div className="card-head"><div className="card-title">Recent orders</div></div>
+      {[0,1,2,3].map(i => <div key={i} className="skel" style={{height:58,marginBottom:8}}/>)}
+    </div>
+  );
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div className="card-title">Recent orders</div>
+        <span style={{fontFamily:'var(--mono)',fontSize:10.5,color:'var(--brown-500)',letterSpacing:'0.16em',textTransform:'uppercase',display:'inline-flex',alignItems:'center',gap:6}}>
+          <span style={{width:7,height:7,borderRadius:'50%',background:'var(--green-500)',boxShadow:'0 0 0 3px rgba(94,125,58,0.18)',display:'inline-block'}}/>Live
+        </span>
+      </div>
+      <div className="live-feed">
+        {feed.length === 0 ? <div className="empty-msg"><div className="em-text">No orders yet</div></div>
+          : feed.map((o,idx) => (
+          <div key={o.id} className={'order'+(idx===0&&o.fresh?' fresh':'')}>
+            <div className={'av '+avCls(o.customer)}>{(o.customer||'?')[0]}</div>
+            <div className="body">
+              <div className="o-id">{o.id}</div>
+              <div className="o-name">{o.customer||'—'}</div>
+              <div className="o-items">{o.items}</div>
+            </div>
+            <div className="o-right">
+              <div className="o-amt">{fmtM(o.total)}</div>
+              <div className="o-time">{o.time}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TopSellers({ sellers, loading }) {
+  if (loading) return <div className="card"><div className="card-head"><div className="card-title">Top selling menu</div></div>{[0,1,2,3,4].map(i=><div key={i} className="skel" style={{height:48,marginBottom:8}}/>)}</div>;
+  const max = sellers[0]?.revenue||1;
+  const barColor = (i) => i===0?'':i<3?' alt':' alt2';
+  return (
+    <div className="card">
+      <div className="card-head"><div className="card-title">Top selling menu</div></div>
+      {sellers.length===0
+        ? <div className="empty-msg" style={{padding:'24px 0'}}><div className="em-text">No sales data</div></div>
+        : sellers.slice(0,7).map((s,i) => (
+          <div className="seller-row" key={s.name}>
+            <div className="seller-rank">#{String(i+1).padStart(2,'0')}</div>
+            <div>
+              <div className="seller-name">{s.name_th||s.name}</div>
+              <div className="seller-bar"><div className={'fill'+barColor(i)} style={{width:`${s.revenue/max*100}%`}}/></div>
+            </div>
+            <div className="seller-right">
+              <div className="amt">{fmtM(s.revenue)}</div>
+              <div className="qty">{s.qty} sold</div>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  );
+}
+
+function OptionsAnalysis({ options, loading }) {
+  if (loading) return <div className="card"><div className="card-head"><div className="card-title">Options analysis</div></div><div className="skel" style={{height:180}}/></div>;
+  if (!options || options.length===0) return (
+    <div className="card">
+      <div className="card-head"><div className="card-title">Options analysis</div></div>
+      <div className="empty-msg" style={{padding:'24px 0'}}><div className="em-text">No option data yet</div></div>
+    </div>
+  );
+  return (
+    <div className="card">
+      <div className="card-head"><div className="card-title">Options · by order analysis</div></div>
+      {options.map(opt => {
+        const top = opt.segs[0];
+        return (
+          <div className="opt-block" key={opt.label}>
+            <div className="h">
+              <span>{opt.label}</span>
+              {top && <span className="top">Top: {top.name} · {top.pct}%</span>}
+            </div>
+            <div className="stack-bar">
+              {opt.segs.map((s,i) => <div key={s.name} className="seg-fill" style={{width:`${s.pct}%`,background:OPT_PAL[i%OPT_PAL.length]}}/>)}
+            </div>
+            <div className="opt-legend">
+              {opt.segs.map((s,i) => <span className="lg" key={s.name}><span className="d" style={{background:OPT_PAL[i%OPT_PAL.length]}}></span>{s.name}<span className="pct">{s.pct}%</span></span>)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Heatmap({ heatmap, loading }) {
+  const [hover, setHover] = useState(null);
+  if (loading) return <div className="card"><div className="card-head"><div className="card-title">Revenue density · day × hour</div></div><div className="skel" style={{height:160}}/></div>;
+  if (!heatmap || heatmap.data.length===0) return (
+    <div className="card">
+      <div className="card-head"><div className="card-title">Revenue density · day × hour</div></div>
+      <div className="empty-msg" style={{padding:'24px 0'}}><div className="em-text">Need 7+ days of data</div></div>
+    </div>
+  );
+  return (
+    <div className="card">
+      <div className="card-head"><div className="card-title">Revenue density · day × hour</div><span className="card-link" style={{textTransform:'uppercase'}}>Last 7 days</span></div>
+      <div style={{position:'relative'}}>
+        {heatmap.data.map(row => (
+          <div className="heat" key={row.day} style={{marginBottom:4}}>
+            <div className="h-lbl">{row.day}</div>
+            {row.cells.map((c,i) => (
+              <div key={i} className="cell" data-v={c.val}
+                onMouseEnter={e=>{const rect=e.currentTarget.getBoundingClientRect(),par=e.currentTarget.closest('.card').getBoundingClientRect();setHover({x:rect.left-par.left+rect.width/2,y:rect.top-par.top,text:`${row.day} ${c.h}:00 · ${c.orders} orders`});}}
+                onMouseLeave={()=>setHover(null)}/>
+            ))}
+          </div>
+        ))}
+        <div className="heat-x"><span/>{heatmap.hours.map(h=><span key={h}>{h}</span>)}</div>
+        {hover && <div className="tooltip" style={{left:hover.x,top:hover.y}}>{hover.text}</div>}
+      </div>
+      <div className="heat-legend">Less<span className="scale">{['rgba(61,36,24,0.04)','var(--pink-50)','var(--pink-100)','var(--pink-200)','var(--pink-300)','var(--pink-400)','var(--pink-500)'].map((c,i)=><span key={i} style={{background:c}}/>)}</span>More</div>
+    </div>
+  );
+}
+
+function CategoryMix({ sellers, loading }) {
+  if (loading) return <div className="card"><div className="card-head"><div className="card-title">Category mix</div></div><div className="skel" style={{height:130}}/></div>;
+  const byCat = {};
+  (sellers||[]).forEach(s => { byCat[s.category||'other'] = (byCat[s.category||'other']||0) + s.revenue; });
+  const total = Object.values(byCat).reduce((a,b)=>a+b,0)||1;
+  const segments = Object.entries(byCat).map(([k,v])=>({name:k,value:v,color:CAT_COLORS[k]||'#b8a094'})).sort((a,b)=>b.value-a.value);
+  if (segments.length===0) return <div className="card"><div className="card-head"><div className="card-title">Category mix</div></div><div className="empty-msg" style={{padding:'24px 0'}}><div className="em-text">No data</div></div></div>;
+  return (
+    <div className="card">
+      <div className="card-head"><div className="card-title">Category mix</div></div>
+      <div className="mix-wrap">
+        <Donut segments={segments} centerLabel="Categories" centerValue={segments.length}/>
+        <div className="mix-rows">
+          {segments.map(s => <div className="mix-row" key={s.name}><span className="sw" style={{background:s.color}}/><span className="nm">{s.name}</span><span className="num">{Math.round(s.value/total*100)}% · {fmtM(s.value)}</span></div>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AvgBasket({ avgBasket, basketTrend, loading }) {
+  const trend = basketTrend||[0,0,0,0,0,0,0];
+  const last  = trend[trend.length-1]||avgBasket||0;
+  const prev2 = trend[trend.length-2]||0;
+  const delta = prev2>0 ? (last-prev2)/prev2*100 : 0;
+  if (loading) return <div className="card"><div className="card-head"><div className="card-title">Avg basket size</div></div><div className="skel" style={{height:120}}/></div>;
+  return (
+    <div className="card">
+      <div className="card-head"><div className="card-title">Average basket size</div><span className="card-link">7-day</span></div>
+      <div className="basket-stats">
+        <div className="v">{fmtM(avgBasket||0)}<span className="unit">/ order</span></div>
+        <span className={'delta '+(delta>0?'up':delta<0?'down':'flat')}>{delta>0?'↑':delta<0?'↓':'—'} {Math.abs(delta).toFixed(1)}%</span>
+      </div>
+      <div style={{marginTop:14}}><Sparkline data={trend} color="var(--brown-700)" height={64}/></div>
+      <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontFamily:'var(--mono)',fontSize:10,color:'var(--brown-500)',letterSpacing:'0.12em',textTransform:'uppercase'}}>
+        {['Mon','Tue','Wed','Thu','Fri','Sat','Today'].map(l=><span key={l}>{l}</span>)}
+      </div>
+    </div>
+  );
+}
+
+function HoursBreakdown({ todayHourly, loading }) {
+  if (loading) return <div className="card"><div className="card-head"><div className="card-title">Revenue by period · today</div></div><div className="skel" style={{height:100}}/></div>;
+  const windows = [
+    {label:'Morning rush',range:'08–10',idxs:[0,1,2]},
+    {label:'Lunch peak',  range:'11–13',idxs:[3,4,5]},
+    {label:'Afternoon',   range:'14–16',idxs:[6,7,8]},
+    {label:'Evening',     range:'17–20',idxs:[9,10,11,12]}
+  ];
+  const hours = todayHourly||[];
+  const peak = windows.reduce((best,w)=>{const r=w.idxs.reduce((s,i)=>s+(hours[i]?.revenue||0),0);return r>best.r?{w,r}:best;},{w:null,r:0});
+  return (
+    <div className="card">
+      <div className="card-head"><div className="card-title">Revenue by period · today</div></div>
+      <div className="hours-grid">
+        {windows.map(w => {
+          const sum = w.idxs.reduce((s,i)=>s+(hours[i]?.revenue||0),0);
+          const ord = w.idxs.reduce((s,i)=>s+(hours[i]?.orders||0),0);
+          return (
+            <div className={'hour-pill'+(peak.w===w?' best':'')} key={w.label}>
+              <div className="t">{w.range}</div>
+              <div className="a">{fmtK(sum)}<span className="unit">฿</span></div>
+              <div className="o">{w.label} · {ord} ord</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TopCustomers({ customers, loading }) {
+  if (loading) return <div className="card"><div className="card-head"><div className="card-title">Top customers</div></div><div className="skel" style={{height:180}}/></div>;
+  if (!customers||customers.length===0) return (
+    <div className="card">
+      <div className="card-head"><div className="card-title">Top customers · this period</div></div>
+      <div className="empty-msg" style={{padding:'24px 0'}}><div className="em-text">No customer data yet</div></div>
+    </div>
+  );
+  return (
+    <div className="card">
+      <div className="card-head"><div className="card-title">Top customers · this period</div></div>
+      <table className="cust-table">
+        <thead><tr><th>Customer (LINE name)</th><th className="r">Orders</th></tr></thead>
+        <tbody>
+          {customers.map((c,i) => (
+            <tr key={c.name}>
+              <td>
+                <div className="cust-cell">
+                  <div className={'av'+' '+avCls(c.name)} style={{background:i===0?'var(--pink-200)':i<3?'#cfe1aa':'#efd9b5'}}>{(c.name||'?')[0]}</div>
+                  <div className="nm">{c.name}</div>
+                </div>
+              </td>
+              <td className="r"><span className="num">{c.orders}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── Range Picker ──────────────────────────────────────────────
+function RangePicker({ value, onChange, onClose }) {
+  const [from, setFrom] = useState(value.from);
+  const [to, setTo]     = useState(value.to);
+  const today = new Date(), todayStr = toISO(today);
+  const days  = daysBetween(from, to);
+  const preset = (d) => {
+    const f = new Date(today); f.setDate(today.getDate()-(d-1));
+    setFrom(toISO(f)); setTo(todayStr); onChange({from:toISO(f),to:todayStr});
+  };
+  return (
+    <div className="rp-pop" onMouseDown={e=>e.stopPropagation()}>
+      <div className="rp-head"><span>Custom range</span><button className="rp-x" onClick={onClose}>×</button></div>
+      <div className="rp-presets">
+        {[{l:'Last 7d',d:7},{l:'Last 14d',d:14},{l:'Last 30d',d:30},{l:'Last 90d',d:90}].map(p =>
+          <button key={p.d} className={'rp-preset'+(days===p.d&&to===todayStr?' active':'')} onClick={()=>preset(p.d)}>{p.l}</button>
+        )}
+      </div>
+      <div className="rp-fields">
+        <label><span>From</span><input type="date" value={from} max={to} onChange={e=>setFrom(e.target.value)}/></label>
+        <label><span>To</span><input type="date" value={to} min={from} max={todayStr} onChange={e=>setTo(e.target.value)}/></label>
+      </div>
+      <div className="rp-foot">
+        <span className="rp-count">{days} day{days===1?'':'s'} selected</span>
+        <button className="rp-apply" onClick={()=>{onChange(from>to?{from:to,to:from}:{from,to});onClose();}}>Apply</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tweaks Panel ──────────────────────────────────────────────
+function TweaksPanel({ open, onClose, children }) {
+  if (!open) return null;
+  return (
+    <div className="twk-panel">
+      <div className="twk-head"><b>Dashboard tweaks</b><button style={{border:0,background:'transparent',cursor:'pointer',color:'var(--brown-700)',fontSize:16}} onClick={onClose}>✕</button></div>
+      <div className="twk-body">{children}</div>
+    </div>
+  );
+}
+function TweakToggle({ label, value, onChange }) {
+  return (
+    <div className="twk-row" style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
+      <span className="twk-lbl">{label}</span>
+      <button type="button" className="twk-toggle" data-on={value?'1':'0'} onClick={()=>onChange(!value)}><i/></button>
+    </div>
+  );
+}
+function TweakSection({ label }) {
+  return <div className="twk-sect">{label}</div>;
+}
+
+// =============================================================================
+//  MAIN APP
+// =============================================================================
+
+function App() {
+  const [period, setPeriod]     = useState('today');
+  const [customRange, setCR]    = useState(()=>{ const t=new Date(),f=new Date(t); f.setDate(t.getDate()-13); return {from:toISO(f),to:toISO(t)}; });
+  const [pickerOpen, setPicker] = useState(false);
+  const [twkOpen, setTwk]       = useState(false);
+  const [autoRefresh, setAR]    = useState(true);
+  const [showHeatmap, setSH]    = useState(true);
+  const [now, setNow]           = useState(new Date());
+  const [data, setData]         = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(null);
+  const [lastFetch, setLF]      = useState(null);
+  const prevIds = useRef(new Set());
+
+  // Clock tick
+  useEffect(()=>{ const id=setInterval(()=>setNow(new Date()),1000); return()=>clearInterval(id); },[]);
+
+  // Fetch data
+  const fetchData = useCallback(() => {
+    let url = BACKEND_URL + '?action=dashboard&period=' + period;
+    if (period === 'custom') url += '&from=' + customRange.from + '&to=' + customRange.to;
+    setLoading(true);
+    fetch(url)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(d => {
+        setData(prev => {
+          if (prev) prevIds.current = new Set((prev.recent||[]).map(o=>o.id));
+          return d;
+        });
+        setLoading(false); setError(null);
+        setLF(new Date());
+      })
+      .catch(err => { setError(err.message); setLoading(false); });
+  }, [period, customRange]);
+
+  useEffect(()=>{ fetchData(); }, [fetchData]);
+
+  // Auto-refresh every 60s
+  useEffect(()=>{
+    if (!autoRefresh) return;
+    const id = setInterval(fetchData, 60000);
+    return ()=>clearInterval(id);
+  }, [autoRefresh, fetchData]);
+
+  const feed = useMemo(()=>{
+    return (data?.recent||[]).map(o=>({...o, fresh: !prevIds.current.has(o.id)}));
+  }, [data]);
+
+  const revDelta  = pctDelta(data?.revenue||0, data?.prev_revenue||0);
+  const ordDelta  = pctDelta(data?.orders||0,  data?.prev_orders||0);
+  const bskDelta  = pctDelta(data?.avg_basket||0, data?.prev_avg_basket||0);
+  const custDelta = pctDelta(data?.customers||0,  data?.prev_customers||0);
+
+  const seriesNow  = (data?.series||[]).map(s=>s.revenue);
+  const seriesPrev = (data?.prev_series||[]).map(s=>s.revenue);
+  const labels     = (data?.series||[]).map(s=>s.label);
+  const isHourly   = (data?.from === data?.to) || period === 'today';
+
+  const periodLabel = period==='today'?'vs yesterday':period==='week'?'vs prev 7d':period==='month'?'vs prev month':('vs prev '+daysBetween(customRange.from,customRange.to)+'d');
+
+  const customDays = useMemo(()=>daysBetween(customRange.from,customRange.to),[customRange]);
+
+  return (
+    <div className="app">
+      {/* TOPBAR */}
+      <div className="topbar">
+        <div style={{display:'flex',alignItems:'center'}}>
+          <div className="brand">
+            <div className="brand-mark">g</div>
+            <div className="brand-text">
+              <div className="name">Glongnom</div>
+              <div className="sub">Sales Dashboard</div>
+            </div>
+          </div>
+          <div className="crumb">
+            <div className="k">Analytics</div>
+            <div className="v">{periodTitle(period, now, customRange)}</div>
+          </div>
+        </div>
+        <div className="topbar-right">
+          <div className="seg-wrap">
+            <div className="seg">
+              <button className={period==='today'?'active':''} onClick={()=>{setPeriod('today');setPicker(false);}}>Today</button>
+              <button className={period==='week' ?'active':''} onClick={()=>{setPeriod('week'); setPicker(false);}}>Week</button>
+              <button className={period==='month'?'active':''} onClick={()=>{setPeriod('month');setPicker(false);}}>Month</button>
+              <button className={period==='custom'?'active':''} onClick={()=>{setPeriod('custom');setPicker(o=>!o||period!=='custom');}}>
+                <span style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="12" height="11" rx="1.5"/><line x1="2" y1="6.5" x2="14" y2="6.5"/><line x1="5" y1="2" x2="5" y2="5"/><line x1="11" y1="2" x2="11" y2="5"/></svg>
+                  {period==='custom' ? customRangeShort(customRange) : 'Custom'}
+                </span>
+              </button>
+            </div>
+            {pickerOpen && period==='custom' && <RangePicker value={customRange} onChange={v=>setCR(v)} onClose={()=>setPicker(false)}/>}
+          </div>
+          <div className="live">
+            <span className="pulse"/>
+            {autoRefresh ? 'Live' : 'Paused'}
+          </div>
+          <div className="clock">{fmtClock(now)}</div>
+        </div>
+      </div>
+
+      {/* ERROR BANNER */}
+      {error && !data && (
+        <div style={{background:'#fff0ee',border:'1px solid var(--pink-300)',borderRadius:'var(--r-md)',padding:'14px 18px',marginBottom:18,fontFamily:'var(--mono)',fontSize:12,color:'var(--rose-700)',display:'flex',alignItems:'center',gap:10}}>
+          <span>⚠</span> Failed to load dashboard: {error}. Check that your Apps Script is deployed and the URL is correct.
+          <button onClick={fetchData} style={{marginLeft:'auto',border:'1px solid var(--pink-300)',background:'transparent',padding:'5px 12px',borderRadius:'var(--r-pill)',cursor:'pointer',color:'var(--rose-700)',fontFamily:'var(--mono)',fontSize:11}}>Retry</button>
+        </div>
+      )}
+
+      {/* KPIs */}
+      <div className="grid" style={{marginBottom:18}}>
+        <KpiCard label="Revenue" value={fmtM(data?.revenue||0)} deltaPct={revDelta} sub={periodLabel+' · '+fmtM(data?.prev_revenue||0)} spark={seriesNow.length?seriesNow:[0]} sparkColor="var(--pink-500)" italicValue/>
+        <KpiCard label="Orders"  value={fmt(data?.orders||0)} unit="orders" deltaPct={ordDelta}  sub={periodLabel+' · '+(data?.prev_orders||0)+' orders'} spark={(data?.series||[]).map(s=>s.orders)} sparkColor="var(--brown-700)"/>
+        <KpiCard label="Avg basket" value={fmtM(data?.avg_basket||0)} deltaPct={bskDelta} sub="per order" spark={data?.basket_trend||[0]} sparkColor="#8aaa5a"/>
+        <KpiCard label="Customers" value={fmt(data?.customers||0)} unit="unique" deltaPct={custDelta} sub={periodLabel+' · '+(data?.prev_customers||0)} spark={(data?.basket_trend||[0]).map(()=>data?.customers||0)} sparkColor="#c8893b"/>
+
+        {/* Revenue chart + live feed */}
+        <div className="card col-8 revcard">
+          <div className="card-head">
+            <div className="card-title">Revenue · {isHourly?'hourly':'daily'}</div>
+            <div className="legend">
+              <span><span className="dot now"/>{period==='today'?'Today':period==='week'?'This week':period==='month'?'This month':'Selected range'}</span>
+              <span><span className="dot prev"/>{period==='today'?'Yesterday':period==='week'?'Prev 7 days':period==='month'?'Prev month':'Prev '+customDays+'d'}</span>
+            </div>
+          </div>
+          <div className="totals">
+            <div className="big">{fmtM(data?.revenue||0)}<span className="unit">total</span></div>
+            <span className={'delta '+(revDelta>0?'up':revDelta<0?'down':'flat')}>{revDelta>0?'↑':revDelta<0?'↓':'—'} {Math.abs(revDelta).toFixed(1)}%</span>
+            <span style={{fontSize:12,color:'var(--brown-500)',fontFamily:'var(--mono)'}}>{periodLabel}</span>
+          </div>
+          {loading
+            ? <div className="skel" style={{height:260,borderRadius:12}}/>
+            : <AreaChart now={seriesNow.length?seriesNow:[0,0]} prev={seriesPrev.length?seriesPrev:[0,0]} labels={labels.length?labels:['—','—']} height={260}/>
+          }
+        </div>
+
+        <div className="col-4">
+          <LiveOrders feed={feed} loading={loading}/>
+        </div>
+
+        {/* Hours breakdown */}
+        <div className="col-12">
+          <HoursBreakdown todayHourly={data?.today_hourly} loading={loading}/>
+        </div>
+
+        {/* Top sellers, options, category */}
+        <div className="col-5"><TopSellers sellers={data?.sellers||[]} loading={loading}/></div>
+        <div className="col-4"><OptionsAnalysis options={data?.options||[]} loading={loading}/></div>
+        <div className="col-3"><CategoryMix sellers={data?.sellers||[]} loading={loading}/></div>
+
+        {/* Heatmap + basket */}
+        {showHeatmap && <div className="col-8"><Heatmap heatmap={data?.heatmap} loading={loading}/></div>}
+        <div className={showHeatmap?'col-4':'col-12'}>
+          <AvgBasket avgBasket={data?.avg_basket||0} basketTrend={data?.basket_trend} loading={loading}/>
+        </div>
+
+        {/* Top customers */}
+        <div className="col-12">
+          <TopCustomers customers={data?.top_customers||[]} loading={loading}/>
+        </div>
+      </div>
+
+      <div className="foot">
+        <span>Glongnom · Sales Dashboard</span>
+        <span>{lastFetch ? 'Refreshed '+fmtClock(lastFetch)+' ICT' : 'Loading...'} {data?.generated_at ? '· Data as of '+data.generated_at : ''}</span>
+      </div>
+
+      {/* Tweaks gear button */}
+      <button className="twk-gear" onClick={()=>setTwk(o=>!o)} title="Dashboard settings">⚙</button>
+
+      {/* Tweaks panel */}
+      <TweaksPanel open={twkOpen} onClose={()=>setTwk(false)}>
+        <TweakSection label="Data"/>
+        <TweakToggle label="Auto-refresh (60s)" value={autoRefresh} onChange={setAR}/>
+        <TweakSection label="Layout"/>
+        <TweakToggle label="Show heatmap" value={showHeatmap} onChange={setSH}/>
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
