@@ -378,6 +378,10 @@
       return;
     }
 
+    // Only admins can change roles / activate-deactivate. RLS enforces this
+    // server-side too (profiles_own_update = admin only); gating the UI here
+    // stops managers from clicking buttons that would silently no-op.
+    const isAdmin = currentUser?.role === 'admin';
     tbody.innerHTML = users.map(u => {
       const initial = (u.name || '?')[0].toUpperCase();
       const isMe    = u.id === currentUser?.id;
@@ -407,12 +411,12 @@
             <div style="display:flex;gap:6px;">
               <button class="btn btn-ghost btn-sm"
                       onclick="openEditRoleModal('${u.id}', '${u.name || u.id}', '${u.role}')"
-                      ${isMe ? 'disabled title="Cannot change your own role"' : ''}>
+                      ${isMe ? 'disabled title="Cannot change your own role"' : (!isAdmin ? 'disabled title="Only admins can change roles"' : '')}>
                 Change Role
               </button>
               <button class="btn btn-sm ${u.is_active ? 'btn-deactivate' : 'btn-activate'}"
                       onclick="toggleActive('${u.id}', ${u.is_active}, '${(u.name || u.id).replace(/'/g, "\\'")}')"
-                      ${isMe ? 'disabled title="You cannot deactivate your own account"' : ''}>
+                      ${isMe ? 'disabled title="You cannot deactivate your own account"' : (!isAdmin ? 'disabled title="Only admins can deactivate users"' : '')}>
                 ${u.is_active ? 'Deactivate' : 'Activate'}
               </button>
             </div>
@@ -488,13 +492,18 @@
 
   async function saveRole() {
     const newRole = document.getElementById('editRoleSelect').value;
-    const { error } = await supabase
+    // .select() returns the affected rows. If RLS blocks the write it comes
+    // back empty with NO error — so an empty result means "permission denied",
+    // not success. Without this check the UI would falsely report "Role updated".
+    const { data, error } = await supabase
       .from('user_profiles')
       .update({ role: newRole })
-      .eq('id', editingUserId);
+      .eq('id', editingUserId)
+      .select('id');
 
     closeEditRoleModal();
     if (error) { showToast('Error: ' + error.message); return; }
+    if (!data?.length) { showToast('Permission denied — only admins can change roles'); return; }
     showToast('Role updated');
     await loadUsers();
   }
@@ -507,11 +516,13 @@
     const confirmed = confirm(`${action} ${name}? ${currentState ? 'They will lose access immediately.' : 'They will regain access.'}`);
     if (!confirmed) return;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('user_profiles')
       .update({ is_active: !currentState })
-      .eq('id', userId);
+      .eq('id', userId)
+      .select('id');
     if (error) { showToast('Error: ' + error.message); return; }
+    if (!data?.length) { showToast('Permission denied — only admins can deactivate users'); return; }
     showToast(!currentState ? 'User activated' : 'User deactivated');
     await loadUsers();
   }
