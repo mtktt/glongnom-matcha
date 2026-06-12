@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Local env / secrets (never commit real keys — they live in Netlify env vars)
+.env
+.env.local
+.env.*.local
+
+# Netlify
+.netlify/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Glongnom POS — Login</title>
+  <link rel="stylesheet" href="/css/design-system.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: clamp(64px, 12vh, 140px);
+    }
+    .card {
+      background: var(--surface-warm);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: var(--shadow-md);
+      border: 1.5px solid var(--border);
+    }
+    .logo { text-align: center; margin-bottom: 32px; }
+    .logo h1 { font-size: var(--text-2xl); font-weight: 700; color: var(--text-primary); letter-spacing: -0.5px; }
+    .logo p  { font-size: var(--text-sm); color: var(--text-muted); margin-top: 4px; }
+
+    label {
+      display: block;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-family: 'Sarabun', system-ui, sans-serif;
+      color: var(--text-primary);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      margin-bottom: 18px;
+    }
+
+    /* Password show/hide wrapper */
+    .input-wrap { position: relative; margin-bottom: 18px; }
+    .input-wrap input { margin-bottom: 0; padding-right: 44px; }
+    .eye-btn {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; font-size: 16px;
+      color: var(--text-muted); padding: 0; width: auto;
+    }
+    .eye-btn:hover { color: var(--brown-mid); }
+    input:focus {
+      border-color: var(--pink-deep);
+      box-shadow: 0 0 0 3px rgba(255,133,161,0.18);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 13px;
+      background: var(--brown-dark);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-pill);
+      font-size: 15px;
+      font-weight: 600;
+      font-family: 'Sarabun', system-ui, sans-serif;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary:hover    { background: var(--brown-mid); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .link-btn {
+      background: none;
+      border: none;
+      color: var(--brown-light);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      font-family: 'Sarabun', system-ui, sans-serif;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      width: auto;
+    }
+    .link-btn:hover { color: var(--brown-mid); }
+
+    .footer-row {
+      display: flex;
+      justify-content: center;
+      margin-top: 18px;
+    }
+
+    /* Brand divider */
+    .hero-divider {
+      width: 40px; height: 2px; background: var(--pink-accent);
+      border-radius: 2px; margin: 8px auto 16px;
+    }
+
+    /* Panel fade+slide transition */
+    .panels-container { position: relative; }
+    .panel {
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .panel-visible {
+      opacity: 1; transform: translateY(0); pointer-events: auto; position: relative;
+    }
+    .panel-hidden {
+      opacity: 0; transform: translateY(8px); pointer-events: none;
+      position: absolute; width: 100%; top: 0; left: 0;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <h1>Glongnom POS</h1>
+    <div class="hero-divider"></div>
+    <p id="cardSubtitle">Staff Login</p>
+  </div>
+
+  <div class="panels-container">
+    <!-- ── Login Form ── -->
+    <div id="loginPanel" class="panel panel-visible">
+      <div class="msg" id="loginError"></div>
+      <form id="loginForm">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="staff@glongnom.com" required autocomplete="username" />
+
+        <label for="password">Password</label>
+        <div class="input-wrap">
+          <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password" />
+          <button type="button" class="eye-btn" onclick="togglePw('password')" aria-label="Show password">👁</button>
+        </div>
+
+        <button type="submit" class="btn-primary" id="loginBtn">Sign In</button>
+      </form>
+      <div class="footer-row">
+        <button class="link-btn" onclick="showForgot()">Forgot password?</button>
+      </div>
+    </div>
+
+    <!-- ── Forgot Password Form ── -->
+    <div id="forgotPanel" class="panel panel-hidden">
+      <div class="msg" id="forgotMsg"></div>
+      <form id="forgotForm">
+        <label for="forgotEmail">Your email</label>
+        <input type="email" id="forgotEmail" placeholder="staff@glongnom.com" required />
+        <button type="submit" class="btn-primary" id="forgotBtn">Send Reset Link</button>
+      </form>
+      <div class="footer-row">
+        <button class="link-btn" onclick="showLogin()">← Back to login</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  Auth.redirectIfLoggedIn('/admin/');
+
+  // ── Panel toggle ──
+  function showForgot() {
+    document.getElementById('loginPanel').className        = 'panel panel-hidden';
+    document.getElementById('forgotPanel').className       = 'panel panel-visible';
+    document.getElementById('cardSubtitle').textContent    = 'Reset Password';
+    document.getElementById('forgotEmail').value = document.getElementById('email').value;
+    document.getElementById('forgotMsg').className = 'msg';
+  }
+
+  function showLogin() {
+    document.getElementById('forgotPanel').className       = 'panel panel-hidden';
+    document.getElementById('loginPanel').className        = 'panel panel-visible';
+    document.getElementById('cardSubtitle').textContent    = 'Staff Login';
+  }
+
+  // ── Password show/hide ──
+  function togglePw(id) {
+    const el = document.getElementById(id);
+    el.type = el.type === 'password' ? 'text' : 'password';
+  }
+
+  // ── Sign In ──
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const btn      = document.getElementById('loginBtn');
+    const errEl    = document.getElementById('loginError');
+
+    btn.disabled    = true;
+    btn.textContent = 'Signing in…';
+    errEl.className = 'msg';
+
+    try {
+      await Auth.signIn(email, password);
+      const profile = await Auth.getProfile();
+      window.location.href = profile?.role === 'kitchen' ? '/kitchen/' : '/admin/';
+    } catch (err) {
+      errEl.textContent = err.message || 'Invalid email or password.';
+      errEl.className   = 'msg error show';
+      btn.disabled      = false;
+      btn.textContent   = 'Sign In';
+    }
+  });
+
+  // ── Forgot Password ──
+  document.getElementById('forgotForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email  = document.getElementById('forgotEmail').value.trim();
+    const btn    = document.getElementById('forgotBtn');
+    const msgEl  = document.getElementById('forgotMsg');
+
+    btn.disabled    = true;
+    btn.textContent = 'Sending…';
+    msgEl.className = 'msg';
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/reset-password.html',
+    });
+
+    if (error) {
+      msgEl.textContent = error.message;
+      msgEl.className   = 'msg error show';
+    } else {
+      msgEl.textContent = 'Reset link sent! Check your email and click the link to set a new password.';
+      msgEl.className   = 'msg success show';
+      document.getElementById('forgotForm').style.display = 'none';
+    }
+
+    btn.disabled    = false;
+    btn.textContent = 'Send Reset Link';
+  });
+</script>
+</body>
+</html>

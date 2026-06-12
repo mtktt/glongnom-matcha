@@ -1,0 +1,11 @@
+[build]
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[functions."line-notify"]
+  node_bundler = "esbuild"
+
+[build.environment]
+  NODE_VERSION = "18"

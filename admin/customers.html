@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Glongnom Admin — Customers / CRM</title>
+  <link rel="stylesheet" href="/css/design-system.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      padding-top: 52px;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      background: var(--surface-warm); border-bottom: 1.5px solid var(--border);
+      box-shadow: var(--shadow-xs); height: 52px; display: flex; align-items: center;
+      padding: 0 16px; position: fixed; top: 0; left: 0; right: 0; z-index: 1100; gap: 12px;
+    }
+    .topbar-hamburger { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--brown-dark); padding: 4px 6px; flex-shrink: 0; line-height: 1; }
+    .topbar-hamburger:hover { color: var(--brown-mid); }
+    .topbar-brand { font-weight: 700; font-size: var(--text-base); color: var(--brown-dark); white-space: nowrap; }
+    .topbar-page-label { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }
+    .topbar-spacer { flex: 1; }
+
+    /* ── SIDEBAR ── */
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(61,28,2,0.35); z-index: 1150; }
+    .sidebar-backdrop.show { display: block; }
+    #sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; width: 260px;
+      background: var(--surface-warm); border-right: 1.5px solid var(--border);
+      box-shadow: var(--shadow-lg); z-index: 1200;
+      transform: translateX(-100%); transition: transform 0.3s ease;
+      display: flex; flex-direction: column;
+    }
+    #sidebar.open { transform: translateX(0); }
+    .sidebar-header { height: 60px; display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--pink-accent); flex-shrink: 0; }
+    .sidebar-header .sb-brand { font-weight: 800; font-size: 16px; color: var(--brown-dark); flex: 1; }
+    .sidebar-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 4px; }
+    .sidebar-close:hover { color: var(--brown-dark); }
+    .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; }
+    .sidebar-nav a { display: block; text-decoration: none; padding: 12px 20px; font-size: 14px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); border-left: 3px solid transparent; transition: background 0.15s, color 0.15s; }
+    .sidebar-nav a:hover { background: var(--surface); color: var(--brown-mid); }
+    .sidebar-nav a.active { background: var(--pink-soft); color: var(--brown-dark); border-left-color: var(--pink-deep); }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+    .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+    .sidebar-user-info { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .sidebar-signout { width: 100%; padding: 9px 14px; border-radius: var(--radius-pill); border: 1.5px solid var(--border); background: none; font-size: 13px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); cursor: pointer; transition: background 0.2s, color 0.2s; }
+    .sidebar-signout:hover { background: var(--error-light); color: var(--error); border-color: var(--error); }
+
+    /* ── BUTTONS ── */
+    .btn { padding: 9px 18px; border-radius: var(--radius-pill); border: none; font-size: var(--text-base); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; cursor: pointer; transition: background 0.2s; }
+    .btn-primary       { background: var(--brown-dark); color: #fff; }
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-ghost         { background: var(--surface-warm); color: var(--text-secondary); border: 1.5px solid var(--border); }
+    .btn-ghost:hover   { background: var(--pink-soft); }
+    .btn-sm { padding: 6px 14px; font-size: 13px; }
+    .btn-danger        { background: var(--error-light); color: var(--error); border: 1.5px solid rgba(192,57,43,0.3); }
+    .btn-danger:hover  { background: #ffd5d5; }
+
+    /* ── TWO-PANEL LAYOUT ── */
+    .crm-layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      height: calc(100vh - 52px);
+    }
+    @media (max-width: 768px) {
+      .crm-layout { grid-template-columns: 1fr; }
+      .detail-panel { display: none; position: fixed; inset: 52px 0 0 0; z-index: 500; overflow-y: auto; }
+      .detail-panel.mobile-open { display: block; }
+      .list-panel { height: calc(100vh - 52px); }
+    }
+
+    /* ── LEFT: LIST PANEL ── */
+    .list-panel {
+      display: flex; flex-direction: column;
+      border-right: 1.5px solid var(--border);
+      background: var(--surface-warm);
+      overflow: hidden;
+    }
+    .list-header {
+      padding: 20px 16px 14px;
+      border-bottom: 1.5px solid var(--border);
+      flex-shrink: 0;
+    }
+    .list-header h1 { font-size: var(--text-xl); font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+    .search-input {
+      width: 100%; padding: 9px 14px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-pill);
+      font-size: var(--text-sm); font-family: 'Sarabun', system-ui, sans-serif;
+      color: var(--text-primary); background: var(--surface); outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-input:focus { border-color: var(--pink-deep); box-shadow: 0 0 0 3px rgba(255,133,161,0.18); }
+
+    /* Summary chips */
+    .summary-row {
+      display: flex; gap: 8px; padding: 10px 16px;
+      border-bottom: 1.5px solid var(--border); flex-shrink: 0; flex-wrap: wrap;
+    }
+    .summary-chip {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-pill); padding: 4px 12px;
+      font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary);
+    }
+    .summary-chip .chip-count { font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); }
+
+    /* Customer list */
+    .customer-list {
+      flex: 1; overflow-y: auto;
+    }
+    .customer-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 16px; border-bottom: 1px solid var(--border);
+      cursor: pointer; transition: background 0.15s;
+    }
+    .customer-row:hover { background: var(--pink-soft); }
+    .customer-row.active { background: var(--pink-soft); border-left: 3px solid var(--pink-deep); }
+    .avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: var(--pink-fill); color: var(--brown-dark);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700; flex-shrink: 0;
+    }
+    .customer-info { flex: 1; min-width: 0; }
+    .customer-name { font-size: var(--text-base); font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .customer-phone { font-size: var(--text-xs); color: var(--text-muted); margin-top: 1px; }
+    .customer-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+    .customer-pts { font-size: var(--text-xs); font-weight: 700; color: var(--text-secondary); font-family: var(--font-mono, monospace); }
+    .customer-stats { font-size: 11px; color: var(--text-muted); }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: var(--text-sm); }
+    .empty-state .icon { font-size: 32px; display: block; margin-bottom: 12px; }
+
+    /* ── RIGHT: DETAIL PANEL ── */
+    .detail-panel {
+      background: var(--surface);
+      overflow-y: auto;
+    }
+    .detail-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; padding: 40px 20px;
+      color: var(--text-muted); font-size: var(--text-sm); text-align: center;
+    }
+    .detail-empty .icon { font-size: 40px; display: block; margin-bottom: 14px; }
+
+    /* Mobile back button */
+    .mobile-back-btn {
+      display: none;
+      align-items: center; gap: 6px;
+      padding: 10px 16px; border: none; background: var(--surface-warm);
+      border-bottom: 1.5px solid var(--border); width: 100%;
+      font-size: var(--text-sm); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif;
+      color: var(--brown-dark); cursor: pointer;
+    }
+    @media (max-width: 768px) { .mobile-back-btn { display: flex; } }
+
+    /* Detail content container */
+    .detail-content { padding: 0 0 40px; }
+
+    /* Section wrappers */
+    .detail-section {
+      padding: 20px 20px 0;
+      border-bottom: 1.5px solid var(--border);
+      margin-bottom: 0;
+    }
+    .detail-section:last-child { border-bottom: none; }
+    .section-title {
+      font-size: var(--text-xs); font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 14px;
+    }
+
+    /* ── PROFILE SECTION ── */
+    .profile-header {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding: 20px 20px 0;
+    }
+    .profile-avatar {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: var(--pink-fill); color: var(--brown-dark);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 700; flex-shrink: 0;
+    }
+    .profile-name { font-size: var(--text-xl); font-weight: 700; color: var(--text-primary); }
+    .profile-since { font-size: var(--text-xs); color: var(--text-muted); margin-top: 3px; }
+
+    /* Form inputs inside detail */
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%; padding: 9px 12px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-size: var(--text-base); font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--surface); color: var(--text-primary); outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus { border-color: var(--pink-deep); box-shadow: 0 0 0 3px rgba(255,133,161,0.18); }
+    .form-group input[readonly] { background: var(--surface-warm); color: var(--text-muted); cursor: default; }
+    .form-group textarea { resize: vertical; min-height: 70px; }
+    .form-row { display: flex; gap: 10px; }
+    .form-row .form-group { flex: 1; }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 8px; padding: 16px 20px; border-bottom: 1.5px solid var(--border);
+    }
+    @media (max-width: 480px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) {
+      .form-row { flex-direction: column; gap: 0; }
+      .adjust-form .form-row { flex-direction: row; }
+      .loyalty-points-display { font-size: 28px; }
+      .profile-name { font-size: var(--text-lg); }
+      .ledger-table { font-size: 11px; }
+      .ledger-table thead th, .ledger-table tbody td { padding: 7px 6px; }
+    }
+    .stat-chip {
+      background: var(--surface-warm); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px 12px; text-align: center;
+    }
+    .stat-value { font-size: var(--text-lg); font-weight: 800; color: var(--text-primary); }
+    .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── LOYALTY SECTION ── */
+    .loyalty-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .loyalty-points-display {
+      font-size: 36px; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono, monospace);
+      line-height: 1;
+    }
+    .loyalty-pts-label { font-size: var(--text-sm); color: var(--text-muted); margin-top: 4px; }
+
+    /* Progress bar */
+    .progress-wrap { margin: 14px 0 10px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 5px; }
+    .progress-bar {
+      height: 8px; border-radius: var(--radius-pill);
+      background: var(--border); overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; border-radius: var(--radius-pill);
+      background: linear-gradient(90deg, var(--pink-deep), #c8a000);
+      transition: width 0.4s ease;
+    }
+    .progress-max-label { font-size: var(--text-xs); color: #c8a000; font-weight: 700; margin-top: 4px; }
+
+    /* Adjust points form */
+    .adjust-form {
+      background: var(--surface-warm); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); padding: 14px; margin-top: 14px; margin-bottom: 16px;
+    }
+    .adjust-form-title { font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 10px; }
+    .adjust-form .form-row { align-items: flex-end; }
+
+    /* ── ORDER HISTORY ── */
+    .order-timeline { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .order-card {
+      background: var(--surface-warm); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px 14px;
+    }
+    .order-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 6px; }
+    .order-no { font-size: var(--text-sm); font-weight: 800; color: var(--text-primary); }
+    .order-date { font-size: 11px; color: var(--text-muted); }
+    .order-badges { display: flex; gap: 5px; flex-wrap: wrap; }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      border-radius: var(--radius-pill); padding: 2px 9px;
+      font-size: 11px; font-weight: 600;
+    }
+    .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+    .s-served    { background: #f0fdf4; color: #16a34a; }
+    .s-served    .status-dot { background: #22c55e; }
+    .s-cancelled { background: var(--error-light); color: var(--error); }
+    .s-cancelled .status-dot { background: var(--error); }
+    .s-new       { background: #fffbeb; color: #92400e; }
+    .s-new       .status-dot { background: #f59e0b; }
+    .s-preparing { background: var(--pink-soft); color: var(--brown-mid); }
+    .s-preparing .status-dot { background: var(--pink-deep); }
+    .s-ready     { background: #f0fdf4; color: #065f46; }
+    .s-ready     .status-dot { background: #10b981; }
+    .pay-paid    { background: #f0fdf4; color: #16a34a; border: 1px solid #86efac; border-radius: var(--radius-pill); padding: 2px 8px; font-size: 11px; font-weight: 600; }
+    .pay-pending { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; border-radius: var(--radius-pill); padding: 2px 8px; font-size: 11px; font-weight: 600; }
+    .order-items-summary { font-size: var(--text-xs); color: var(--text-secondary); margin: 5px 0 6px; }
+    .order-total { font-size: var(--text-sm); font-weight: 800; color: var(--text-primary); }
+
+    /* ── LEDGER TABLE ── */
+    .ledger-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: var(--text-xs); }
+    .ledger-table thead th {
+      background: var(--surface-warm); padding: 8px 10px; text-align: left;
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1.5px solid var(--border);
+    }
+    .ledger-table tbody td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .ledger-table tbody tr:last-child td { border-bottom: none; }
+    .delta-positive { color: #16a34a; font-weight: 800; font-family: var(--font-mono, monospace); }
+    .delta-negative { color: var(--error); font-weight: 800; font-family: var(--font-mono, monospace); }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); right: var(--space-6);
+      background: var(--brown-dark); color: #fff;
+      padding: var(--space-3) var(--space-5); border-radius: var(--radius-pill);
+      font-size: var(--text-base); z-index: 9999;
+      opacity: 0; transform: translateY(12px); transition: all 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { background: var(--error); }
+
+    /* Skeleton inside detail panel */
+    .detail-skeleton { padding: 20px; }
+    .detail-skeleton .skeleton-line { margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <button class="topbar-hamburger" onclick="openSidebar()" aria-label="Open menu">&#9776;</button>
+  <span class="topbar-brand">Glongnom POS</span>
+  <span class="topbar-page-label">/ Customers / CRM</span>
+  <div class="topbar-spacer"></div>
+</div>
+
+<!-- Sidebar Backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<!-- Sidebar Drawer -->
+<aside id="sidebar" role="navigation" aria-label="Admin navigation">
+  <div class="sidebar-header">
+    <span class="sb-brand">Glongnom POS</span>
+    <button class="sidebar-close" onclick="closeSidebar()" aria-label="Close menu">&times;</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-group-label">Management</div>
+    <a href="/admin/orders.html">&#129534; Order Queue</a>
+    <a href="/admin/">&#128203; Menu Management</a>
+    <a href="/admin/options.html">&#9881;&#65039; Options</a>
+    <a href="/admin/customers.html" class="active">&#127919; Customers</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Inventory</div>
+    <a href="/admin/inventory.html">&#128230; Inventory</a>
+    <a href="/admin/suppliers.html">&#128666; Suppliers</a>
+    <a href="/admin/purchase-orders.html">&#128722; Purchases</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Analysis</div>
+    <a href="/admin/dashboard.html">&#128202; Dashboard</a>
+    <a href="/admin/reports.html">&#128202; Reports</a>
+    <a href="/admin/accounting.html">&#128210; Accounting</a>
+    <a href="/admin/finance.html">&#128200; Finance</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Setting</div>
+    <a href="/admin/users.html">&#128101; Staff</a>
+    <a href="/admin/printer.html">&#128424;&#65039; Printers</a>
+  </nav>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user-info" id="sidebarUserInfo">Loading…</div>
+    <button class="sidebar-signout" onclick="Auth.signOut()">Sign Out</button>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════════════════════ TWO-PANEL LAYOUT -->
+<div class="crm-layout">
+
+  <!-- ── LEFT: CUSTOMER LIST ── -->
+  <div class="list-panel">
+    <div class="list-header">
+      <h1>Customers / CRM</h1>
+      <input type="text" id="customerSearch" class="search-input"
+             placeholder="Search by name or phone…"
+             oninput="filterCustomers(this.value)" />
+    </div>
+
+    <!-- Summary counts -->
+    <div class="summary-row">
+      <div class="summary-chip">
+        <span>Total</span>
+        <span class="chip-count" id="statTotal">—</span>
+      </div>
+      <div class="summary-chip">
+        <span>With Orders</span>
+        <span class="chip-count" id="statWithOrders">—</span>
+      </div>
+      <div class="summary-chip">
+        <span>Gold</span>
+        <span class="chip-count" id="statGold">—</span>
+      </div>
+    </div>
+
+    <!-- Customer list -->
+    <div class="customer-list" id="customerList">
+      <!-- Skeleton rows while loading -->
+      <div style="padding:12px 16px;"><div class="skeleton skeleton-row"></div></div>
+      <div style="padding:12px 16px;"><div class="skeleton skeleton-row"></div></div>
+      <div style="padding:12px 16px;"><div class="skeleton skeleton-row"></div></div>
+      <div style="padding:12px 16px;"><div class="skeleton skeleton-row"></div></div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: DETAIL PANEL ── -->
+  <div class="detail-panel" id="detailPanel">
+    <!-- Mobile back button -->
+    <button class="mobile-back-btn" onclick="closeMobileDetail()">&#8592; Back to list</button>
+
+    <!-- Default empty state -->
+    <div class="detail-empty" id="detailEmpty">
+      <span class="icon">&#127919;</span>
+      <div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Select a customer</div>
+      <div>Click any customer on the left to view their profile, loyalty points, and order history.</div>
+    </div>
+
+    <!-- Detail content (hidden until customer selected) -->
+    <div class="detail-content" id="detailContent" style="display:none;"></div>
+  </div>
+
+</div><!-- /crm-layout -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+
+<!-- ══════════════════════════════════════════════ SCRIPTS -->
+<script>
+  // ── STATE ──────────────────────────────────────────────────
+  let currentProfile  = null;  // logged-in user profile
+  let allCustomers    = [];    // full loaded list
+  let selectedCustomer = null; // currently selected customer object
+
+  // ── SIDEBAR ────────────────────────────────────────────────
+  function openSidebar()  {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sidebarBackdrop').classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarBackdrop').classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
+  // ── MOBILE DETAIL ──────────────────────────────────────────
+  function openMobileDetail() {
+    document.getElementById('detailPanel').classList.add('mobile-open');
+  }
+  function closeMobileDetail() {
+    document.getElementById('detailPanel').classList.remove('mobile-open');
+    // Deselect active row
+    document.querySelectorAll('.customer-row.active').forEach(r => r.classList.remove('active'));
+    selectedCustomer = null;
+  }
+
+  // ── TOAST ──────────────────────────────────────────────────
+  function showToast(msg, isError = false) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.toggle('error', isError);
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  // ── FORMAT HELPERS ─────────────────────────────────────────
+  function escHtml(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  function fmtDateTime(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  function fmtNum(n) {
+    const v = Number(n);
+    return isNaN(v) ? '0' : v.toLocaleString('en-US');
+  }
+
+  // ── TIER BADGE ─────────────────────────────────────────────
+  function tierBadge(tier) {
+    const cfg = {
+      bronze: { label: 'Bronze', color: '#c97c2a', bg: '#fef3e0' },
+      silver: { label: 'Silver', color: '#6b7280', bg: '#f3f4f6' },
+      gold:   { label: 'Gold',   color: '#c8a000', bg: '#fefce0' },
+    };
+    const c = cfg[tier] || cfg.bronze;
+    return `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;background:${c.bg};color:${c.color};font-size:11px;font-weight:600;font-family:var(--font-mono,monospace)">
+      <span style="width:6px;height:6px;border-radius:50%;background:${c.color}"></span>${c.label}
+    </span>`;
+  }
+
+  // ── STATUS PILL ────────────────────────────────────────────
+  function statusPill(status) {
+    const map = {
+      served:    ['s-served', 'Served'],
+      cancelled: ['s-cancelled', 'Cancelled'],
+      new:       ['s-new', 'New'],
+      preparing: ['s-preparing', 'Preparing'],
+      ready:     ['s-ready', 'Ready'],
+    };
+    const [cls, label] = map[status] || ['s-new', status];
+    return `<span class="status-pill ${cls}"><span class="status-dot"></span>${label}</span>`;
+  }
+
+  // ── LOAD CUSTOMERS ─────────────────────────────────────────
+  async function loadCustomers() {
+    // Skeleton
+    document.getElementById('customerList').innerHTML = `
+      <div style="padding:12px 16px;"><div class="skeleton skeleton-row"></div></div>
+      <div style="padding:12px 16px;"><div class="skeleton skeleton-row"></div></div>
+      <div style="padding:12px 16px;"><div class="skeleton skeleton-row"></div></div>
+      <div style="padding:12px 16px;"><div class="skeleton skeleton-row"></div></div>`;
+
+    const { data, error } = await window.supabase
+      .from('customers')
+      .select(`
+        id, name, phone, address, loyalty_points, tier, birthday, notes, created_at,
+        orders!customer_id(id, total_price, status)
+      `)
+      .order('loyalty_points', { ascending: false });
+
+    if (error) {
+      showToast('Failed to load customers: ' + error.message, true);
+      document.getElementById('customerList').innerHTML = `
+        <div class="empty-state"><span class="icon">&#9888;</span>Failed to load customers. Check your connection.</div>`;
+      return;
+    }
+
+    // Compute derived stats per customer
+    allCustomers = (data || []).map(c => {
+      const validOrders = (c.orders || []).filter(o => o.status !== 'cancelled');
+      return {
+        ...c,
+        total_orders: validOrders.length,
+        total_spent:  validOrders.reduce((sum, o) => sum + Number(o.total_price || 0), 0),
+      };
+    });
+
+    renderCustomerList(allCustomers);
+    updateSummaryBar();
+  }
+
+  function updateSummaryBar() {
+    const total       = allCustomers.length;
+    const withOrders  = allCustomers.filter(c => c.total_orders > 0).length;
+    const gold        = allCustomers.filter(c => c.tier === 'gold').length;
+    document.getElementById('statTotal').textContent      = total;
+    document.getElementById('statWithOrders').textContent = withOrders;
+    document.getElementById('statGold').textContent       = gold;
+  }
+
+  function renderCustomerList(list) {
+    const container = document.getElementById('customerList');
+    if (!list.length) {
+      container.innerHTML = `<div class="empty-state"><span class="icon">&#128101;</span>No customers found.</div>`;
+      return;
+    }
+
+    container.innerHTML = list.map(c => {
+      const initial = (c.name || '?')[0].toUpperCase();
+      const isActive = selectedCustomer && selectedCustomer.id === c.id;
+      return `
+        <div class="customer-row${isActive ? ' active' : ''}" onclick="selectCustomer('${c.id}')" data-id="${c.id}">
+          <div class="avatar">${escHtml(initial)}</div>
+          <div class="customer-info">
+            <div class="customer-name">${escHtml(c.name || '—')}</div>
+            <div class="customer-phone">${escHtml(c.phone || '—')}</div>
+          </div>
+          <div class="customer-meta">
+            ${tierBadge(c.tier)}
+            <div class="customer-pts">${fmtNum(c.loyalty_points)} pts</div>
+            <div class="customer-stats">${c.total_orders} orders · ฿${fmtNum(c.total_spent)}</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── SEARCH / FILTER ────────────────────────────────────────
+  function filterCustomers(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      renderCustomerList(allCustomers);
+      return;
+    }
+    const filtered = allCustomers.filter(c =>
+      (c.name  || '').toLowerCase().includes(q) ||
+      (c.phone || '').toLowerCase().includes(q)
+    );
+    renderCustomerList(filtered);
+  }
+
+  // ── SELECT CUSTOMER ────────────────────────────────────────
+  async function selectCustomer(customerId) {
+    // Mark row active
+    document.querySelectorAll('.customer-row').forEach(r => {
+      r.classList.toggle('active', r.dataset.id === customerId);
+    });
+
+    const customer = allCustomers.find(c => c.id === customerId);
+    if (!customer) return;
+    selectedCustomer = customer;
+
+    // Hide empty state, show skeleton in detail
+    document.getElementById('detailEmpty').style.display   = 'none';
+    document.getElementById('detailContent').style.display = '';
+    document.getElementById('detailContent').innerHTML = `
+      <div class="detail-skeleton">
+        <div class="skeleton skeleton-line medium"></div>
+        <div class="skeleton skeleton-line short" style="margin-top:8px;"></div>
+        <div class="skeleton skeleton-line medium" style="margin-top:8px;"></div>
+        <div class="skeleton skeleton-card" style="margin-top:16px;height:80px;"></div>
+        <div class="skeleton skeleton-card" style="margin-top:10px;height:120px;"></div>
+      </div>`;
+
+    // Mobile: slide panel in
+    if (window.innerWidth <= 768) openMobileDetail();
+
+    // Fetch orders and ledger in parallel
+    const [ordersResult, ledgerResult] = await Promise.all([
+      window.supabase
+        .from('orders')
+        .select(`id, order_no, order_type, status, payment_status, total_price, created_at, order_items(qty, unit_price, menus(name))`)
+        .eq('customer_id', customerId)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      window.supabase
+        .from('loyalty_ledger')
+        .select('id, delta, reason, note, created_at, orders(order_no)')
+        .eq('customer_id', customerId)
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ]);
+
+    const orders  = ordersResult.data  || [];
+    const ledger  = ledgerResult.data  || [];
+
+    renderDetailPanel(customer, orders, ledger);
+  }
+
+  // ── RENDER DETAIL ──────────────────────────────────────────
+  function renderDetailPanel(customer, orders, ledger) {
+    const canEdit = currentProfile && ['admin', 'manager'].includes(currentProfile.role);
+    const pts     = customer.loyalty_points || 0;
+    const tier    = customer.tier || 'bronze';
+
+    // Stats
+    const validOrders  = orders.filter(o => o.status !== 'cancelled');
+    const totalOrders  = customer.total_orders;
+    const totalSpent   = customer.total_spent;
+    const avgOrder     = totalOrders > 0 ? totalSpent / totalOrders : 0;
+    const memberSince  = fmtDate(customer.created_at);
+
+    // Progress bar
+    let progressHtml = '';
+    if (tier === 'gold') {
+      progressHtml = `<div class="progress-max-label">&#9733; Max tier reached — Gold member</div>`;
+    } else {
+      const nextTier   = tier === 'bronze' ? 'silver' : 'gold';
+      const target     = tier === 'bronze' ? 300 : 1000;
+      const base       = tier === 'bronze' ? 0   : 300;
+      const pct        = Math.min(100, ((pts - base) / (target - base)) * 100);
+      const remaining  = Math.max(0, target - pts);
+      progressHtml = `
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>${pts} pts</span>
+            <span>${target} pts for ${nextTier.charAt(0).toUpperCase() + nextTier.slice(1)}</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct.toFixed(1)}%"></div></div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtNum(remaining)} pts to go</div>
+        </div>`;
+    }
+
+    // Adjust points section (admin/manager only)
+    const adjustHtml = canEdit ? `
+      <div class="adjust-form">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div class="adjust-form-title" style="margin-bottom:0;">Manual Adjust Points</div>
+          <button class="btn btn-ghost btn-sm" onclick="recalculatePoints('${escHtml(customer.id)}')" title="Accrue points from all served orders that haven't been counted yet">&#8635; Recalculate from Orders</button>
+        </div>
+        <div class="form-row" style="align-items:flex-end;gap:8px;flex-wrap:wrap;">
+          <div class="form-group" style="flex:0 0 90px;margin-bottom:0;">
+            <label>Delta (+/-)</label>
+            <input type="number" id="adjustDelta" placeholder="e.g. 50" style="text-align:center;" />
+          </div>
+          <div class="form-group" style="flex:1;margin-bottom:0;">
+            <label>Reason</label>
+            <select id="adjustReason">
+              <option value="manual">Manual Adjustment</option>
+              <option value="correction">Correction</option>
+              <option value="promotion">Promotion</option>
+              <option value="birthday">Birthday Bonus</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:8px;margin-bottom:8px;">
+          <label>Note (optional)</label>
+          <textarea id="adjustNote" placeholder="Internal note…" style="min-height:50px;"></textarea>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="confirmAdjustPoints('${escHtml(customer.id)}')">Confirm Adjustment</button>
+      </div>` : '';
+
+    // Order history cards
+    const orderCardsHtml = orders.length === 0
+      ? `<div class="empty-state" style="padding:24px 0;">No orders yet.</div>`
+      : orders.map(o => {
+          const items = (o.order_items || []).map(i => {
+            const menuName = i.menus ? i.menus.name : '—';
+            return `${escHtml(menuName)} ×${i.qty}`;
+          }).join(', ');
+          return `
+            <div class="order-card">
+              <div class="order-card-header">
+                <div>
+                  <span class="order-no">#${escHtml(o.order_no || '—')}</span>
+                  <span class="order-date" style="margin-left:8px;">${fmtDateTime(o.created_at)}</span>
+                </div>
+                <div class="order-badges">
+                  ${statusPill(o.status)}
+                  <span class="${o.payment_status === 'paid' ? 'pay-paid' : 'pay-pending'}">${o.payment_status === 'paid' ? '&#10003; Paid' : 'Unpaid'}</span>
+                </div>
+              </div>
+              <div class="order-items-summary">${items || 'No items'}</div>
+              <div class="order-total">฿${Number(o.total_price || 0).toFixed(0)}</div>
+            </div>`;
+        }).join('');
+
+    // Ledger table rows
+    const ledgerRowsHtml = ledger.length === 0
+      ? `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">No ledger entries.</td></tr>`
+      : ledger.map(l => {
+          const isPositive = l.delta >= 0;
+          const deltaHtml  = isPositive
+            ? `<span class="delta-positive">+${l.delta}</span>`
+            : `<span class="delta-negative">${l.delta}</span>`;
+          const orderNo    = l.orders ? `#${escHtml(l.orders.order_no)}` : '—';
+          return `
+            <tr>
+              <td style="color:var(--text-muted);">${fmtDate(l.created_at)}</td>
+              <td>${escHtml(l.reason)}</td>
+              <td>${orderNo}</td>
+              <td>${deltaHtml}</td>
+              <td style="color:var(--text-muted);">${escHtml(l.note || '')}</td>
+            </tr>`;
+        }).join('');
+
+    document.getElementById('detailContent').innerHTML = `
+      <!-- Profile header -->
+      <div class="profile-header">
+        <div class="profile-avatar">${escHtml((customer.name || '?')[0].toUpperCase())}</div>
+        <div style="flex:1;">
+          <div class="profile-name">${escHtml(customer.name || '—')}</div>
+          <div class="profile-since">Member since ${memberSince}</div>
+          <div style="margin-top:4px;">${tierBadge(tier)}</div>
+        </div>
+        <button onclick="refreshDetail()" style="background:none;border:1.5px solid var(--border);border-radius:var(--radius-pill);padding:4px 12px;font-size:12px;cursor:pointer;color:var(--text-muted);">&#8634; Refresh</button>
+      </div>
+
+      <!-- Stats bar -->
+      <div class="stats-bar">
+        <div class="stat-chip">
+          <div class="stat-value">${totalOrders}</div>
+          <div class="stat-label">Total Orders</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-value">฿${fmtNum(Math.round(totalSpent))}</div>
+          <div class="stat-label">Total Spent</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-value">฿${fmtNum(Math.round(avgOrder))}</div>
+          <div class="stat-label">Avg Order</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-value" style="font-size:13px;">${memberSince}</div>
+          <div class="stat-label">Member Since</div>
+        </div>
+      </div>
+
+      <!-- Edit Profile section -->
+      <div class="detail-section" style="padding-bottom:16px;">
+        <div class="section-title">Profile</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="editName" value="${escHtml(customer.name || '')}" ${canEdit ? '' : 'readonly'} />
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="text" id="editPhone" value="${escHtml(customer.phone || '')}" ${canEdit ? '' : 'readonly'} />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Birthday</label>
+            <input type="date" id="editBirthday" value="${customer.birthday || ''}" ${canEdit ? '' : 'readonly'} />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea id="editNotes" ${canEdit ? '' : 'readonly'}>${escHtml(customer.notes || '')}</textarea>
+        </div>
+        ${canEdit ? `<button class="btn btn-primary btn-sm" onclick="saveProfile('${escHtml(customer.id)}')">Save Profile</button>` : ''}
+      </div>
+
+      <!-- Loyalty section -->
+      <div class="detail-section" style="padding-bottom:16px;">
+        <div class="section-title">Loyalty Points</div>
+        <div class="loyalty-header">
+          <div>
+            <div class="loyalty-points-display">${fmtNum(pts)}</div>
+            <div class="loyalty-pts-label">points</div>
+          </div>
+          <div style="margin-left:8px;">${tierBadge(tier)}</div>
+        </div>
+        ${progressHtml}
+        ${adjustHtml}
+      </div>
+
+      <!-- Order History section -->
+      <div class="detail-section" style="padding-bottom:4px;">
+        <div class="section-title">Order History</div>
+        <div class="order-timeline">${orderCardsHtml}</div>
+      </div>
+
+      <!-- Loyalty Ledger section -->
+      <div class="detail-section" style="padding-bottom:16px;">
+        <div class="section-title">Loyalty Ledger</div>
+        <div style="overflow-x:auto;">
+          <table class="ledger-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Reason</th>
+                <th>Order #</th>
+                <th>Points</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>${ledgerRowsHtml}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── SAVE PROFILE ───────────────────────────────────────────
+  async function saveProfile(customerId) {
+    const name     = document.getElementById('editName').value.trim();
+    const phone    = document.getElementById('editPhone').value.trim();
+    const birthday = document.getElementById('editBirthday').value || null;
+    const notes    = document.getElementById('editNotes').value.trim() || null;
+
+    if (!name) { showToast('Name is required.', true); return; }
+
+    const { error } = await window.supabase
+      .from('customers')
+      .update({ name, phone, birthday, notes })
+      .eq('id', customerId);
+
+    if (error) { showToast('Save failed: ' + error.message, true); return; }
+
+    showToast('Profile saved.');
+    // Update local state and re-render list
+    const idx = allCustomers.findIndex(c => c.id === customerId);
+    if (idx >= 0) {
+      allCustomers[idx] = { ...allCustomers[idx], name, phone, birthday, notes };
+      selectedCustomer  = allCustomers[idx];
+    }
+    renderCustomerList(allCustomers);
+    // Re-mark active row
+    const row = document.querySelector(`.customer-row[data-id="${customerId}"]`);
+    if (row) row.classList.add('active');
+  }
+
+  // ── ADJUST POINTS ──────────────────────────────────────────
+  async function confirmAdjustPoints(customerId) {
+    const delta  = parseInt(document.getElementById('adjustDelta').value, 10);
+    const reason = document.getElementById('adjustReason').value;
+    const note   = document.getElementById('adjustNote').value.trim() || null;
+
+    if (isNaN(delta) || delta === 0) {
+      showToast('Enter a non-zero point delta.', true);
+      return;
+    }
+
+    const { error } = await window.supabase.rpc('adjust_loyalty_points', {
+      p_customer_id: customerId,
+      p_delta:       delta,
+      p_reason:      reason,
+      p_note:        note,
+    });
+
+    if (error) { showToast('Adjustment failed: ' + error.message, true); return; }
+
+    showToast(`Points adjusted by ${delta > 0 ? '+' : ''}${delta}.`);
+
+    // Reload the customer list and reopen the same customer
+    await loadCustomers();
+    await selectCustomer(customerId);
+  }
+
+  // ── RECALCULATE POINTS FROM SERVED ORDERS ──────────────────
+  async function recalculatePoints(customerId) {
+    const { data, error } = await window.supabase.rpc('recalculate_loyalty_for_customer', {
+      p_customer_id: customerId,
+    });
+    if (error) { showToast('Recalculate failed: ' + error.message, true); return; }
+    const count = data ?? 0;
+    showToast(count > 0 ? `${count} order(s) processed — points updated.` : 'Already up to date — no new orders to accrue.');
+    await loadCustomers();
+    await selectCustomer(customerId);
+  }
+
+  // ── REFRESH DETAIL ─────────────────────────────────────────
+  function refreshDetail() {
+    if (selectedCustomer) selectCustomer(selectedCustomer.id);
+  }
+
+  // ── INIT ───────────────────────────────────────────────────
+  async function init() {
+    const profile = await Auth.require(['admin', 'manager', 'cashier']);
+    if (!profile) return;
+    currentProfile = profile;
+
+    document.getElementById('sidebarUserInfo').textContent =
+      (profile.name || '') + (profile.email ? ' · ' + profile.email : '');
+
+    await loadCustomers();
+
+    // Deep-link: auto-open customer if ?id= param is present
+    const params = new URLSearchParams(window.location.search);
+    const deepLinkId = params.get('id');
+    if (deepLinkId) {
+      const customer = allCustomers.find(c => c.id === deepLinkId);
+      if (customer) selectCustomer(deepLinkId);
+    }
+  }
+
+  init();
+</script>
+
+</body>
+</html>

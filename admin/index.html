@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Glongnom Admin — Menu Management</title>
+  <link rel="stylesheet" href="/css/design-system.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+    }
+
+    /* ---- TRIGGER BAR ---- */
+    .topbar {
+      background: var(--surface-warm);
+      border-bottom: 1.5px solid var(--border);
+      box-shadow: var(--shadow-xs);
+      height: 52px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1100;
+      gap: 12px;
+    }
+    .topbar-hamburger {
+      background: none; border: none; font-size: 20px; cursor: pointer;
+      color: var(--brown-dark); padding: 4px 6px; flex-shrink: 0;
+      line-height: 1;
+    }
+    .topbar-hamburger:hover { color: var(--brown-mid); }
+    .topbar-brand {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      font-weight: 700; font-size: var(--text-base); color: var(--brown-dark);
+      white-space: nowrap;
+    }
+    .topbar-page-label {
+      font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap;
+    }
+    .topbar-spacer { flex: 1; }
+
+    /* ---- SIDEBAR DRAWER ---- */
+    .sidebar-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(61,28,2,0.35); z-index: 1150;
+    }
+    .sidebar-backdrop.show { display: block; }
+    #sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; width: 260px;
+      background: var(--surface-warm);
+      border-right: 1.5px solid var(--border);
+      box-shadow: var(--shadow-lg);
+      z-index: 1200;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      display: flex; flex-direction: column;
+    }
+    #sidebar.open { transform: translateX(0); }
+    .sidebar-header {
+      height: 60px; display: flex; align-items: center;
+      padding: 0 20px; border-bottom: 2px solid var(--pink-accent);
+      flex-shrink: 0;
+    }
+    .sidebar-header .sb-brand {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      font-weight: 800; font-size: 16px; color: var(--brown-dark); flex: 1;
+    }
+    .sidebar-close {
+      background: none; border: none; font-size: 22px; cursor: pointer;
+      color: var(--text-muted); line-height: 1; padding: 4px;
+    }
+    .sidebar-close:hover { color: var(--brown-dark); }
+    .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; }
+    .sidebar-nav a {
+      display: block; text-decoration: none;
+      padding: 12px 20px; font-size: 14px; font-weight: 600;
+      font-family: 'Sarabun', system-ui, sans-serif;
+      color: var(--text-secondary);
+      border-left: 3px solid transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+    .sidebar-nav a:hover { background: var(--surface); color: var(--brown-mid); }
+    .sidebar-nav a.active {
+      background: var(--pink-soft); color: var(--brown-dark);
+      border-left-color: var(--pink-deep);
+    }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+    .sidebar-footer {
+      margin-top: auto; padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .sidebar-user-info { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .sidebar-signout {
+      width: 100%; padding: 9px 14px; border-radius: var(--radius-pill);
+      border: 1.5px solid var(--border); background: none;
+      font-size: 13px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif;
+      color: var(--text-secondary); cursor: pointer; transition: background 0.2s, color 0.2s;
+    }
+    .sidebar-signout:hover { background: var(--error-light); color: var(--error); border-color: var(--error); }
+
+    /* ---- LAYOUT ---- */
+    body { padding-top: 52px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+    .page-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 28px;
+    }
+    .page-header h1 { font-size: var(--text-2xl); font-weight: 700; color: var(--text-primary); }
+
+    /* ---- BUTTONS ---- */
+    .btn {
+      padding: 9px 18px; border-radius: var(--radius-pill); border: none;
+      font-size: var(--text-base); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-primary       { background: var(--brown-dark); color: #fff; }
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-ghost         { background: var(--surface-warm); color: var(--text-secondary); border: 1.5px solid var(--border); }
+    .btn-ghost:hover   { background: var(--pink-soft); }
+    .btn-disable       { background: #fff3cd; color: #856404; }
+    .btn-disable:hover { background: #ffeaa7; }
+    .btn-enable        { background: #d4edda; color: #155724; }
+    .btn-enable:hover  { background: #c3e6cb; }
+    .btn-delete        { background: #fee2e2; color: #b91c1c; }
+    .btn-delete:hover  { background: #fca5a5; }
+    .btn-sm { padding: 5px 12px; font-size: 13px; }
+    .btn-danger-solid  { background: #dc2626; color: #fff; }
+    .btn-danger-solid:hover { background: #b91c1c; }
+
+    /* ---- TABS ---- */
+    .tabs {
+      display: flex; gap: 4px; margin-bottom: 24px; background: var(--surface-warm);
+      border-radius: var(--radius-sm); padding: 4px; border: 1.5px solid var(--border); width: fit-content;
+    }
+    .tab {
+      padding: 7px 18px; border-radius: 7px; border: none; background: none;
+      font-size: var(--text-base); font-weight: 500; color: var(--text-muted);
+      font-family: 'Sarabun', system-ui, sans-serif; cursor: pointer; transition: background 0.2s, color 0.2s;
+    }
+    .tab.active { background: var(--brown-dark); color: #fff; }
+
+    /* ---- TABLE ---- */
+    .table-wrap {
+      background: var(--surface); border-radius: var(--radius-md);
+      border: 1.5px solid var(--border); overflow-x: auto;
+      box-shadow: var(--shadow-sm);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      background: var(--surface-warm); padding: var(--space-3) var(--space-4); text-align: left;
+      font-size: var(--text-xs); font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1.5px solid var(--border);
+    }
+    tbody td {
+      padding: 14px var(--space-4); font-size: var(--text-base);
+      border-bottom: 1px solid var(--border); vertical-align: middle;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--pink-soft); }
+
+    /* ---- DRAG HANDLE ---- */
+    .drag-handle {
+      cursor: grab; color: var(--text-muted); font-size: 18px;
+      padding: 14px 8px 14px 16px !important;
+      user-select: none; width: 32px;
+    }
+    .drag-handle:active { cursor: grabbing; }
+    tr.dragging { opacity: 0.4; }
+    tr.drag-over td { border-top: 2px solid var(--pink-deep); }
+
+    .menu-img {
+      width: 44px; height: 44px; border-radius: var(--radius-sm);
+      object-fit: cover; background: var(--pink-fill);
+    }
+    .badge {
+      display: inline-block; padding: 3px 10px;
+      border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 600;
+    }
+    .badge-active   { background: #d4edda; color: #155724; }
+    .badge-inactive { background: #f8d7da; color: #721c24; }
+    .status-toggle {
+      display: inline-flex; align-items: center; cursor: pointer;
+      width: 40px; height: 22px; border-radius: 11px; position: relative;
+      border: none; outline: none; transition: background 0.2s; flex-shrink: 0;
+      background: #d1d5db;
+    }
+    .status-toggle.on  { background: #22c55e; }
+    .status-toggle-knob {
+      position: absolute; width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      transition: left 0.18s; left: 3px; pointer-events: none;
+    }
+    .status-toggle.on .status-toggle-knob { left: 21px; }
+    .actions { display: flex; gap: 6px; flex-wrap: nowrap; align-items: center; white-space: nowrap; }
+    .action-menu-wrap { position: relative; display: inline-block; }
+    .action-dropdown {
+      display: none; position: fixed;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+      min-width: 140px; z-index: 500; overflow: hidden;
+    }
+    .action-dropdown.open { display: block; }
+    .action-dropdown button {
+      display: block; width: 100%; text-align: left; padding: 10px 14px;
+      border: none; background: none; font-size: 13px; cursor: pointer;
+      color: var(--text-primary); font-family: 'Sarabun', system-ui, sans-serif;
+    }
+    .action-dropdown button:hover { background: var(--surface-warm); }
+    .action-dropdown button.danger { color: var(--error); }
+    .action-menu-btn { font-size: 16px; letter-spacing: 1px; }
+
+    /* ---- MODALS ---- */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(61,28,2,0.25); z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; visibility: hidden;
+      transition: opacity 0.22s ease, visibility 0.22s;
+    }
+    .modal-overlay.show {
+      opacity: 1; pointer-events: auto; visibility: visible;
+    }
+    .modal {
+      background: var(--surface-warm); border-radius: var(--radius-lg); padding: var(--space-8);
+      width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+      border: 1.5px solid var(--border); box-shadow: var(--shadow-lg);
+      transform: scale(0.96) translateY(8px);
+      transition: transform 0.22s ease, opacity 0.22s ease;
+      opacity: 0;
+    }
+    .modal-overlay.show .modal {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+    .modal h2 { font-size: var(--text-xl); font-weight: 700; margin-bottom: var(--space-6); color: var(--text-primary); }
+    .form-group { margin-bottom: var(--space-4); }
+    .form-group label {
+      display: block; font-size: var(--text-sm); font-weight: 600;
+      color: var(--text-secondary); margin-bottom: 6px;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); font-size: var(--text-base); font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--surface); color: var(--text-primary);
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: var(--pink-deep);
+      box-shadow: 0 0 0 3px rgba(255,133,161,0.18);
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+    /* ---- DELETE CONFIRM MODAL ---- */
+    .confirm-modal {
+      background: var(--surface-warm); border-radius: var(--radius-lg); padding: var(--space-8);
+      width: 100%; max-width: 400px; text-align: center;
+      border: 1.5px solid var(--border); box-shadow: var(--shadow-lg);
+      transform: scale(0.96) translateY(8px);
+      transition: transform 0.22s ease, opacity 0.22s ease;
+      opacity: 0;
+    }
+    .modal-overlay.show .confirm-modal {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+    .confirm-modal .confirm-icon { font-size: 40px; margin-bottom: 12px; }
+    .confirm-modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); }
+    .confirm-modal p  { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.6; }
+    .confirm-modal .confirm-name {
+      font-weight: 700; color: var(--text-primary);
+      background: var(--pink-soft); border-radius: var(--radius-sm); padding: 8px 14px;
+      display: inline-block; margin-bottom: 20px; font-size: 15px;
+    }
+
+    /* ---- TOAST ---- */
+    .toast {
+      position: fixed; bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); right: var(--space-6);
+      background: var(--brown-dark); color: #fff; padding: var(--space-3) var(--space-5);
+      border-radius: var(--radius-pill); font-size: var(--text-base); z-index: 999;
+      opacity: 0; transform: translateY(12px);
+      transition: all 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px; }
+
+    /* ---- FOOD COST % COLUMN ---- */
+    .fc-good { color: #16a34a; font-weight: 600; }
+    .fc-warn { color: #d97706; font-weight: 600; }
+    .fc-bad  { color: #dc2626; font-weight: 600; }
+    .fc-none { color: var(--text-muted); }
+
+    /* ---- SUMMARY BAR ---- */
+    .summary-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .summary-chip {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-pill); padding: 5px 14px;
+      font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary);
+    }
+    .summary-chip.active-chip   { border-color: #22c55e; color: #16a34a; background: #f0fdf4; }
+    .summary-chip.inactive-chip { border-color: rgba(192,57,43,0.35); color: var(--error); background: var(--error-light); }
+
+    /* ---- DRAG HINT BANNER ---- */
+    .drag-hint {
+      display: flex; align-items: center; background: var(--pink-soft);
+      border: 1.5px solid var(--pink-accent); border-radius: var(--radius-sm);
+      padding: 8px 14px; font-size: 13px; color: var(--brown-mid); margin-bottom: 12px;
+    }
+
+    /* ---- PAGE SECTION TABS ---- */
+    .page-tabs-row {
+      display: flex; gap: 4px; margin-bottom: 20px;
+      background: var(--surface-warm); border-radius: var(--radius-sm);
+      padding: 4px; border: 1.5px solid var(--border); width: fit-content;
+    }
+    .page-tab {
+      padding: 7px 16px; border-radius: 7px; border: none; background: none;
+      font-size: var(--text-base); font-weight: 500; color: var(--text-muted);
+      font-family: 'Sarabun', system-ui, sans-serif; cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .page-tab.active { background: var(--brown-dark); color: #fff; }
+
+    /* ---- PROMO BADGE ON MENU TABLE ROW ---- */
+    .promo-badge {
+      display: inline-block; background: #fee2e2; color: #b91c1c;
+      font-size: 10px; font-weight: 700; padding: 2px 6px;
+      border-radius: var(--radius-pill); margin-left: 6px; vertical-align: middle;
+    }
+    .promo-badge.bundle { background: #ede9fe; color: #6d28d9; }
+
+    /* ---- PROMO GRID ---- */
+    .promo-section-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+    }
+    .promo-section-header h2 { font-size: var(--text-xl); font-weight: 700; color: var(--text-primary); }
+    .promo-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--space-4);
+    }
+    .promo-card {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg); padding: var(--space-5);
+      box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 10px;
+      transition: box-shadow 0.2s;
+    }
+    .promo-card:hover { box-shadow: var(--shadow-md); }
+    .promo-card.inactive { opacity: 0.55; }
+    .promo-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .promo-card-title { font-weight: 700; font-size: var(--text-base); color: var(--text-primary); flex: 1; }
+    .promo-type-badge {
+      display: inline-block; border-radius: var(--radius-pill); padding: 2px 8px;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
+    }
+    .promo-type-badge.item-discount { background: #fee2e2; color: #b91c1c; }
+    .promo-type-badge.bundle        { background: #ede9fe; color: #6d28d9; }
+    .promo-discount-big { font-size: 28px; font-weight: 800; color: #ef4444; line-height: 1; }
+    .promo-bundle-price { font-size: 28px; font-weight: 800; color: #7c3aed; line-height: 1; }
+    .promo-menus {
+      font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .promo-dates { font-size: 12px; color: var(--text-muted); }
+    .promo-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+    .promo-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .promo-status-dot.on  { background: #22c55e; }
+    .promo-status-dot.off { background: #d1d5db; }
+    .promo-card-footer {
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      padding-top: 8px; border-top: 1px solid var(--border);
+    }
+    .promo-empty { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: var(--text-sm); grid-column: 1/-1; }
+
+    /* ---- SETTINGS SECTION ---- */
+    .settings-section-wrap { max-width: 480px; }
+    .settings-card {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg); padding: var(--space-5);
+      box-shadow: var(--shadow-sm); display: flex; gap: 16px; align-items: flex-start;
+    }
+    .settings-card-icon { font-size: 28px; line-height: 1; padding-top: 2px; }
+    .settings-card-body { flex: 1; }
+    .settings-card-title { font-weight: 700; font-size: var(--text-base); color: var(--text-primary); margin-bottom: 4px; }
+    .settings-card-desc  { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: 12px; }
+    .settings-field-row  { display: flex; align-items: center; gap: 10px; }
+
+    /* Menu checkbox list in promo modal */
+    .menu-check-list {
+      max-height: 200px; overflow-y: auto;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 6px;
+    }
+    .menu-check-item {
+      display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+      cursor: pointer; border-radius: var(--radius-sm); font-size: var(--text-sm);
+    }
+    .menu-check-item:hover { background: var(--pink-soft); }
+    .menu-check-item input[type="checkbox"] { width: auto; margin: 0; border: none; flex-shrink: 0; accent-color: var(--brown-dark); }
+    .radio-row { display: flex; gap: var(--space-4); margin-top: 4px; }
+    .radio-row label {
+      display: flex; align-items: center; gap: 6px; font-size: var(--text-base);
+      font-weight: 500; color: var(--text-primary); cursor: pointer; margin-bottom: 0;
+    }
+    .radio-row input[type="radio"] { width: auto; border: none; accent-color: var(--brown-dark); }
+
+    /* ---- RESPONSIVE / MOBILE ---- */
+    @media (max-width: 640px) {
+      #sidebar { width: min(82vw, 300px); }
+      .container { padding: var(--space-5) var(--space-4); }
+      .topbar-page-label { display: none; }
+      .page-header { flex-wrap: wrap; gap: var(--space-3); }
+      .page-header h1 { font-size: var(--text-xl); }
+      .page-header .btn { flex-shrink: 0; }
+
+      .page-tabs-row, .tabs {
+        width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      }
+      .page-tabs-row::-webkit-scrollbar, .tabs::-webkit-scrollbar { display: none; }
+      .page-tab, .tab { white-space: nowrap; flex-shrink: 0; }
+
+      /* Compact table — hide secondary columns on phone, keep Photo / Name / Price / Status / Actions */
+      table thead th:nth-child(1), table tbody td:nth-child(1),
+      table thead th:nth-child(4), table tbody td:nth-child(4),
+      table thead th:nth-child(6), table tbody td:nth-child(6),
+      table thead th:nth-child(7), table tbody td:nth-child(7) { display: none; }
+      table thead th, table tbody td { padding: 10px var(--space-3); font-size: var(--text-sm); }
+      .menu-img { width: 36px; height: 36px; }
+
+      .form-row { grid-template-columns: 1fr; }
+      .modal, .confirm-modal { padding: var(--space-5); max-height: 88vh; }
+      .modal-actions { flex-wrap: wrap; }
+      .modal-actions .btn { flex: 1; }
+
+      .promo-grid { grid-template-columns: 1fr; }
+      .promo-section-header { flex-wrap: wrap; gap: var(--space-3); }
+      .promo-discount-big, .promo-bundle-price { font-size: 24px; }
+
+      .settings-card { flex-direction: column; }
+      .settings-section-wrap { max-width: 100%; }
+      .settings-field-row { flex-wrap: wrap; }
+
+      .toast { left: var(--space-4); right: var(--space-4); text-align: center; }
+    }
+
+    /* Hide photo thumbnail on very narrow phones to leave room for Name/Price/Actions */
+    @media (max-width: 400px) {
+      table thead th:nth-child(2), table tbody td:nth-child(2) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Trigger Bar -->
+<div class="topbar">
+  <button class="topbar-hamburger" onclick="openSidebar()" aria-label="Open menu">&#9776;</button>
+  <span class="topbar-brand">Glongnom POS</span>
+  <span class="topbar-page-label">/ Menu Management</span>
+  <div class="topbar-spacer"></div>
+</div>
+
+<!-- Sidebar Backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<!-- Sidebar Drawer -->
+<aside id="sidebar" role="navigation" aria-label="Admin navigation">
+  <div class="sidebar-header">
+    <span class="sb-brand">Glongnom POS</span>
+    <button class="sidebar-close" onclick="closeSidebar()" aria-label="Close menu">&times;</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-group-label">Management</div>
+    <a href="/admin/orders.html">&#129534; Order Queue</a>
+    <a href="/admin/" class="active">&#128203; Menu Management</a>
+    <a href="/admin/options.html">&#9881;&#65039; Options</a>
+    <a href="/admin/customers.html">&#127919; Customers</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Inventory</div>
+    <a href="/admin/inventory.html">&#128230; Inventory</a>
+    <a href="/admin/suppliers.html">&#128666; Suppliers</a>
+    <a href="/admin/purchase-orders.html">&#128722; Purchases</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Analysis</div>
+    <a href="/admin/dashboard.html">&#128202; Dashboard</a>
+    <a href="/admin/reports.html">&#128202; Reports</a>
+    <a href="/admin/accounting.html">&#128210; Accounting</a>
+    <a href="/admin/finance.html">&#128200; Finance</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Setting</div>
+    <a href="/admin/users.html">&#128101; Staff</a>
+    <a href="/admin/printer.html">&#128424;&#65039; Printers</a>
+  </nav>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user-info" id="sidebarUserInfo">Loading…</div>
+    <button class="sidebar-signout" onclick="Auth.signOut()">Sign Out</button>
+  </div>
+</aside>
+
+<div class="container">
+  <div class="page-header">
+    <h1 id="pageTitle">Menu Management</h1>
+    <button class="btn btn-primary" id="pageActionBtn" onclick="openAddModal()">+ Add Item</button>
+  </div>
+
+  <!-- Page-level section switcher -->
+  <div class="page-tabs-row">
+    <button class="page-tab active" id="pageTab-menu"       onclick="switchSection('menu')">&#128203; เมนู</button>
+    <button class="page-tab"        id="pageTab-promotions" onclick="switchSection('promotions')">&#127991; โปรโมชัน</button>
+    <button class="page-tab"        id="pageTab-settings"   onclick="switchSection('settings')">&#9881;&#65039; ตั้งค่าร้าน</button>
+  </div>
+
+  <!-- ════════════ MENU SECTION ════════════ -->
+  <div id="menuSection">
+    <div class="summary-bar" id="summaryBar"></div>
+
+    <div class="error-banner" id="loadErrorBanner">
+      <span class="error-banner-msg">Failed to load menu — check your connection.</span>
+      <button class="error-banner-retry" onclick="loadMenu()">Retry</button>
+    </div>
+
+    <div class="drag-hint" id="dragHint" style="display:none;">
+      <span>Drag rows to reorder menu items</span>
+      <button onclick="dismissDragHint()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;line-height:1;padding:0;margin-left:8px;">×</button>
+    </div>
+
+    <div class="tabs" id="categoryTabs">
+      <button class="tab active" data-cat-id="all" onclick="selectCategory('all', this)">All</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:32px"></th>
+            <th>Photo</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Cost (฿)</th>
+            <th title="Ingredient cost only. Does not include labor or overhead.">FC%</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="menuTableBody">
+          <tr><td colspan="9"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="9"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="9"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="9"><div class="skeleton skeleton-row"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div><!-- /menuSection -->
+
+  <!-- ════════════ PROMOTIONS SECTION ════════════ -->
+  <div id="promotionsSection" style="display:none;">
+    <div class="promo-section-header">
+      <h2>โปรโมชัน</h2>
+    </div>
+    <div class="promo-grid" id="promoGrid">
+      <div class="promo-empty">&#8987; กำลังโหลด…</div>
+    </div>
+  </div><!-- /promotionsSection -->
+
+  <!-- ════════════ SETTINGS SECTION ════════════ -->
+  <div id="settingsSection" style="display:none;">
+    <div class="settings-section-wrap">
+      <div class="settings-card">
+        <div class="settings-card-icon">&#128666;</div>
+        <div class="settings-card-body">
+          <div class="settings-card-title">ค่าจัดส่ง (บาท / ออเดอร์)</div>
+          <div class="settings-card-desc">ค่าส่งที่คิดกับลูกค้าทุกออเดอร์ ตั้งค่า 0 เพื่อไม่คิดค่าจัดส่ง</div>
+          <div class="settings-field-row">
+            <input type="number" id="deliveryFeeInput" class="form-input" min="0" step="1" style="max-width:110px;text-align:center;" placeholder="10">
+            <button class="btn btn-primary" onclick="saveDeliveryFee()">บันทึก</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /settingsSection -->
+
+</div>
+
+<!-- Add / Edit Modal -->
+<div class="modal-overlay" id="menuModal">
+  <div class="modal">
+    <h2 id="modalTitle">Add Menu Item</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Name (EN)</label>
+        <input type="text" id="fName" placeholder="Matcha Latte" />
+      </div>
+      <div class="form-group">
+        <label>Name (TH)</label>
+        <input type="text" id="fNameTh" placeholder="มัทฉะลาเต้" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Category</label>
+        <select id="fCategory"></select>
+      </div>
+      <div class="form-group">
+        <label>Base Price (฿)</label>
+        <input type="number" id="fPrice" placeholder="0" min="0" step="1" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Image URL</label>
+      <input type="text" id="fImageUrl" placeholder="/assets/matcha-latte.jpg" />
+      <div id="imgPreviewWrap" style="margin-top:8px;display:none;">
+        <img id="imgPreview" src="" alt="Preview"
+             style="width:64px;height:64px;object-fit:cover;border-radius:var(--radius-sm);border:1.5px solid var(--border);">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Description (optional)</label>
+      <textarea id="fDesc" rows="2" placeholder="Short description…"></textarea>
+    </div>
+    <div class="form-group">
+      <label>
+        <input type="checkbox" id="fActive" checked style="width:auto;margin-right:6px" />
+        Active (visible to customers)
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMenuItem()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="confirm-modal">
+    <div class="confirm-icon">🗑️</div>
+    <h2>Delete Menu Item?</h2>
+    <p>This action is permanent and cannot be undone.</p>
+    <div class="confirm-name" id="deleteItemName">—</div>
+    <div class="modal-actions" style="justify-content:center;">
+      <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn btn-danger-solid" onclick="confirmDelete()">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Options Modal -->
+<div class="modal-overlay" id="assignModal">
+  <div class="modal" style="max-width:480px;">
+    <h2>Assign Options</h2>
+    <p id="assignModalSubtitle" style="font-size:13px;color:var(--text-muted);margin-bottom:20px;"></p>
+    <div id="assignCheckboxList" style="display:flex;flex-direction:column;gap:10px;max-height:360px;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeAssignModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAssignments()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Promotion Add / Edit Modal -->
+<div class="modal-overlay" id="promoModal">
+  <div class="modal" style="max-width:540px;">
+    <h2 id="promoModalTitle">เพิ่มโปรโมชัน</h2>
+
+    <input type="hidden" id="promoId" />
+
+    <div class="form-group">
+      <label>ชื่อโปรโมชัน</label>
+      <input type="text" id="promoName" placeholder="เช่น ลด 20% มัทฉะ, เซตมัทฉะ+ข้าว" />
+    </div>
+
+    <div class="form-group">
+      <label>ประเภทโปรโมชัน</label>
+      <div class="radio-row">
+        <label>
+          <input type="radio" name="promoType" value="item_discount" checked onchange="onPromoTypeChange()" />
+          &#128281; ลดราคาเดี่ยว
+        </label>
+        <label>
+          <input type="radio" name="promoType" value="bundle" onchange="onPromoTypeChange()" />
+          &#127873; เซตจับคู่
+        </label>
+      </div>
+    </div>
+
+    <!-- item_discount fields -->
+    <div id="promoDiscountFields">
+      <div class="form-row">
+        <div class="form-group">
+          <label>ประเภทส่วนลด</label>
+          <div class="radio-row" style="margin-top:8px;">
+            <label><input type="radio" name="discountType" value="percentage" checked /> % (เปอร์เซ็นต์)</label>
+            <label><input type="radio" name="discountType" value="fixed" /> ฿ (บาท)</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label id="promoDiscountValueLabel">มูลค่าส่วนลด (%)</label>
+          <input type="number" id="promoDiscountValue" placeholder="20" min="0.01" step="any" />
+        </div>
+      </div>
+    </div>
+
+    <!-- bundle fields -->
+    <div id="promoBundleFields" style="display:none;">
+      <div class="form-group">
+        <label>ราคาเซต (฿)</label>
+        <input type="number" id="promoBundlePrice" placeholder="150" min="0" step="1" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>เลือกเมนูที่ร่วมโปรฯ</label>
+      <div class="menu-check-list" id="promoMenuCheckList">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>วันเริ่ม (ไม่บังคับ)</label>
+        <input type="date" id="promoStartDate" />
+      </div>
+      <div class="form-group">
+        <label>วันสิ้นสุด (ไม่บังคับ)</label>
+        <input type="date" id="promoEndDate" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>
+        <input type="checkbox" id="promoActive" checked style="width:auto;margin-right:6px;" />
+        เปิดใช้งาน
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closePromoModal()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="savePromo()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Promo Delete Confirm Modal -->
+<div class="modal-overlay" id="promoDeleteModal">
+  <div class="confirm-modal">
+    <div class="confirm-icon">&#127991;</div>
+    <h2>ลบโปรโมชัน?</h2>
+    <p>ลบโปรโมชันนี้ออกจากระบบ ไม่สามารถกู้คืนได้</p>
+    <div class="confirm-name" id="promoDeleteName">—</div>
+    <div class="modal-actions" style="justify-content:center;">
+      <button class="btn btn-ghost" onclick="closePromoDeleteModal()">ยกเลิก</button>
+      <button class="btn btn-danger-solid" onclick="confirmDeletePromo()">ลบ</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ---- Sidebar Open / Close ----
+  function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebarBackdrop').classList.add('show'); document.body.style.overflow = 'hidden'; }
+  function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarBackdrop').classList.remove('show'); document.body.style.overflow = ''; }
+
+  // ---- Action Overflow Menu ----
+  function toggleActionMenu(btn) {
+    // Close any other open dropdowns first
+    document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
+
+    const dropdown = btn.nextElementSibling;
+    const wasOpen  = dropdown.classList.contains('open');
+    if (wasOpen) { dropdown.classList.remove('open'); return; }
+
+    // Position using fixed coords relative to the button
+    const btnRect = btn.getBoundingClientRect();
+    dropdown.classList.add('open');
+    dropdown.style.width = '140px';
+    dropdown.style.left  = (btnRect.right - 140) + 'px';
+
+    // Decide open direction after dropdown dimensions are known
+    requestAnimationFrame(() => {
+      const dropH      = dropdown.offsetHeight;
+      const spaceBelow = window.innerHeight - btnRect.bottom;
+      if (spaceBelow < dropH + 8) {
+        dropdown.style.top = (btnRect.top - dropH - 4) + 'px';
+      } else {
+        dropdown.style.top = (btnRect.bottom + 4) + 'px';
+      }
+    });
+  }
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.action-menu-wrap')) {
+      document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
+    }
+  });
+
+  // Close open dropdowns on scroll or resize so they don't float out of sync
+  window.addEventListener('scroll', () => {
+    document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
+  }, true);
+  window.addEventListener('resize', () => {
+    document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
+  });
+
+  let categories    = [];
+  let menuItems     = [];
+  let optionTemplates = [];
+  let selectedCatId = 'all';
+  let editingItemId = null;
+  let deletingItemId   = null;
+  let assigningItemId  = null;
+  let shopId            = null;
+  let shopIsOpen        = true;
+  let currentCloseMsg   = 'ขณะนี้ร้านปิดรับออร์เดอร์ค่ะ ^^';
+  let currentDeliveryFee = 10;
+  let dragSrcId        = null;
+
+  // Promotions state
+  let promotions      = [];
+  let promoMenuMap    = {};   // menuId → promo (for badge rendering)
+  let editingPromoId  = null;
+  let deletingPromoId = null;
+
+  // ---- Section Switcher ----
+  function switchSection(section) {
+    document.getElementById('menuSection').style.display       = section === 'menu'       ? '' : 'none';
+    document.getElementById('promotionsSection').style.display = section === 'promotions' ? '' : 'none';
+    document.getElementById('settingsSection').style.display   = section === 'settings'   ? '' : 'none';
+    document.getElementById('pageTab-menu').classList.toggle('active',       section === 'menu');
+    document.getElementById('pageTab-promotions').classList.toggle('active', section === 'promotions');
+    document.getElementById('pageTab-settings').classList.toggle('active',   section === 'settings');
+
+    const actionBtn = document.getElementById('pageActionBtn');
+    const title     = document.getElementById('pageTitle');
+    if (section === 'menu') {
+      title.textContent      = 'Menu Management';
+      actionBtn.textContent  = '+ Add Item';
+      actionBtn.style.display = '';
+      actionBtn.onclick      = openAddModal;
+    } else if (section === 'promotions') {
+      title.textContent      = 'โปรโมชัน';
+      actionBtn.textContent  = '+ เพิ่มโปรโมชัน';
+      actionBtn.style.display = '';
+      actionBtn.onclick      = () => openPromoModal(null);
+    } else {
+      title.textContent       = 'ตั้งค่าร้าน';
+      actionBtn.style.display = 'none';
+      document.getElementById('deliveryFeeInput').value = currentDeliveryFee;
+    }
+  }
+
+  // ---- Init ----
+  async function init() {
+    const profile = await Auth.require(['admin', 'manager']);
+    if (!profile) return;
+    document.getElementById('sidebarUserInfo').textContent = (profile.name || '') + (profile.email ? ' · ' + profile.email : '');
+    await loadShop();
+    await loadCategories();
+    await Promise.all([loadMenu(), loadOptionTemplates(), loadPromotions()]);
+  }
+
+  async function loadShop() {
+    const { data } = await supabase.from('shops').select('*').single();
+    if (!data) return;
+    shopId             = data.id;
+    shopIsOpen         = data.is_open;
+    currentCloseMsg    = data.close_message || 'ขณะนี้ร้านปิดรับออร์เดอร์ค่ะ ^^';
+    currentDeliveryFee = data.delivery_fee ?? 10;
+  }
+
+  async function saveDeliveryFee() {
+    const raw = document.getElementById('deliveryFeeInput').value;
+    const fee = parseFloat(raw);
+    if (isNaN(fee) || fee < 0) { showToast('กรุณากรอกจำนวนเงินที่ถูกต้อง'); return; }
+    const { error } = await supabase.from('shops').update({ delivery_fee: fee }).eq('id', shopId);
+    if (error) { showToast('บันทึกไม่สำเร็จ: ' + error.message); return; }
+    currentDeliveryFee = fee;
+    showToast('บันทึกค่าจัดส่ง ' + fee + ' บาท เรียบร้อย');
+  }
+
+  async function loadCategories() {
+    const { data } = await supabase.from('categories').select('*').order('sort_order');
+    categories = data || [];
+
+    const tabs   = document.getElementById('categoryTabs');
+    const catSel = document.getElementById('fCategory');
+
+    categories.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className     = 'tab';
+      btn.dataset.catId = cat.id;
+      btn.textContent   = cat.name;
+      btn.onclick       = () => selectCategory(cat.id, btn);
+      tabs.appendChild(btn);
+
+      const opt = document.createElement('option');
+      opt.value       = cat.id;
+      opt.textContent = cat.name;
+      catSel.appendChild(opt);
+    });
+  }
+
+  async function loadMenu() {
+    const { data, error } = await supabase
+      .from('menus')
+      .select('*, categories(name)')
+      .order('sort_order');
+    if (error) {
+      document.getElementById('loadErrorBanner').classList.add('show');
+      return;
+    }
+    document.getElementById('loadErrorBanner').classList.remove('show');
+    menuItems = data || [];
+    renderTable();
+    // BOM cost fetch runs as a non-blocking second pass — table is already visible
+    loadBOMCosts();
+  }
+
+  function selectCategory(catId, btnEl) {
+    selectedCatId = catId;
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    btnEl.classList.add('active');
+    renderTable();
+  }
+
+  // ---- BOM Cost Second Pass ----
+  // Fetches recipe BOM data after the table is rendered and fills in
+  // the Cost (฿) and FC% columns without blocking the initial page paint.
+  async function loadBOMCosts() {
+    const { data: bomData, error } = await supabase
+      .from('recipe_bom')
+      .select('menu_id, quantity_used, ingredients(cost_per_unit)');
+
+    if (error || !bomData) return;
+
+    // Build a cost map: { [menu_id]: totalRecipeCost }
+    const costMap = {};
+    bomData.forEach(row => {
+      const cost = (row.quantity_used || 0) * (row.ingredients?.cost_per_unit || 0);
+      costMap[row.menu_id] = (costMap[row.menu_id] || 0) + cost;
+    });
+
+    // Update cost cells already in the DOM (keyed by data-menu-id)
+    document.querySelectorAll('.cost-cell[data-menu-id]').forEach(cell => {
+      const menuId = cell.dataset.menuId;
+      const rc     = costMap[menuId];
+      cell.textContent = (rc != null && rc > 0) ? '฿' + rc.toFixed(2) : '—';
+    });
+
+    document.querySelectorAll('.fc-cell[data-menu-id]').forEach(cell => {
+      const menuId = cell.dataset.menuId;
+      const price  = parseFloat(cell.dataset.price) || 0;
+      const rc     = costMap[menuId];
+
+      if (rc == null || rc === 0 || price === 0) {
+        cell.innerHTML = '<span class="fc-none">—</span>';
+        return;
+      }
+
+      const fc = (rc / price) * 100;
+      let cls;
+      if (fc <= 30)      cls = 'fc-good';
+      else if (fc <= 35) cls = 'fc-warn';
+      else               cls = 'fc-bad';
+
+      cell.innerHTML = `<span class="${cls}">${fc.toFixed(1)}%</span>`;
+    });
+  }
+
+  // ---- Summary Bar ----
+  function updateSummaryBar() {
+    const active   = menuItems.filter(i => i.is_active).length;
+    const inactive = menuItems.filter(i => !i.is_active).length;
+    document.getElementById('summaryBar').innerHTML =
+      `<span class="summary-chip active-chip">✓ ${active} Active</span>` +
+      `<span class="summary-chip inactive-chip">✕ ${inactive} Inactive</span>` +
+      `<span class="summary-chip">${menuItems.length} Total</span>`;
+  }
+
+  function dismissDragHint() {
+    localStorage.setItem('glongnom_drag_hint_dismissed', '1');
+    document.getElementById('dragHint').style.display = 'none';
+  }
+
+  function buildPromoRowBadge(menuId) {
+    const p = promoMenuMap[menuId];
+    if (!p) return '';
+    if (p.promo_type === 'bundle') {
+      return `<span class="promo-badge bundle">&#127873; เซต</span>`;
+    }
+    const val = p.discount_type === 'percentage'
+      ? `-${p.discount_value}%`
+      : `-฿${p.discount_value}`;
+    return `<span class="promo-badge">SALE ${val}</span>`;
+  }
+
+  // ─────────────────────── PROMOTIONS ───────────────────────
+
+  async function loadPromotions() {
+    const { data, error } = await supabase
+      .from('promotions')
+      .select('*, promotion_items(menu_id)')
+      .order('created_at', { ascending: false });
+
+    if (error) { console.warn('Failed to load promotions:', error.message); return; }
+    promotions = data || [];
+
+    // Build menu → promo map (active promos only)
+    promoMenuMap = {};
+    const today = new Date().toISOString().slice(0, 10);
+    promotions.forEach(p => {
+      if (!p.is_active) return;
+      if (p.start_date && p.start_date > today) return;
+      if (p.end_date   && p.end_date   < today) return;
+      (p.promotion_items || []).forEach(pi => {
+        promoMenuMap[pi.menu_id] = p;
+      });
+    });
+
+    renderPromos();
+  }
+
+  function renderPromos() {
+    const grid = document.getElementById('promoGrid');
+    if (!promotions.length) {
+      grid.innerHTML = '<div class="promo-empty">&#127991; ยังไม่มีโปรโมชัน — กด <strong>+ เพิ่มโปรโมชัน</strong> เพื่อสร้าง</div>';
+      return;
+    }
+
+    grid.innerHTML = promotions.map(p => {
+      const isBundle = p.promo_type === 'bundle';
+      const menuIds  = (p.promotion_items || []).map(pi => pi.menu_id);
+      const menuNames = menuIds.map(id => {
+        const m = menuItems.find(mi => mi.id === id);
+        return m ? (m.name_th || m.name) : '?';
+      }).join(', ') || '—';
+
+      const discountDisplay = isBundle
+        ? `<div class="promo-bundle-price">฿${Number(p.bundle_price).toFixed(0)}</div><div style="font-size:12px;color:var(--text-muted);">ราคาเซต</div>`
+        : p.discount_type === 'percentage'
+          ? `<div class="promo-discount-big">-${p.discount_value}%</div>`
+          : `<div class="promo-discount-big">-฿${p.discount_value}</div>`;
+
+      const typeBadge  = isBundle ? 'bundle' : 'item-discount';
+      const typeLabel  = isBundle ? '&#127873; เซตจับคู่' : '&#128281; ลดราคา';
+      const dateRange  = p.start_date || p.end_date
+        ? `${p.start_date || '∞'} → ${p.end_date || '∞'}`
+        : 'ไม่จำกัดระยะเวลา';
+
+      return `
+        <div class="promo-card ${p.is_active ? '' : 'inactive'}">
+          <div class="promo-card-header">
+            <div class="promo-card-title">${escHtml(p.name_th || p.name)}</div>
+            <span class="promo-type-badge ${typeBadge}">${typeLabel}</span>
+          </div>
+          ${discountDisplay}
+          <div class="promo-menus">&#127828; ${escHtml(menuNames)}</div>
+          <div class="promo-dates">&#128197; ${escHtml(dateRange)}</div>
+          <div class="promo-card-footer">
+            <div class="promo-status">
+              <span class="promo-status-dot ${p.is_active ? 'on' : 'off'}"></span>
+              ${p.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-sm btn-ghost" onclick="togglePromoActive('${p.id}', ${p.is_active})">
+                ${p.is_active ? 'ปิด' : 'เปิด'}
+              </button>
+              <button class="btn btn-sm btn-primary" onclick="openPromoModal('${p.id}')">แก้ไข</button>
+              <button class="btn btn-sm btn-delete" onclick="openPromoDeleteModal('${p.id}', '${escAttr(p.name_th || p.name)}')">ลบ</button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── Promo modal open/close ──
+  function openPromoModal(promoId) {
+    editingPromoId = promoId || null;
+    document.getElementById('promoModalTitle').textContent = promoId ? 'แก้ไขโปรโมชัน' : 'เพิ่มโปรโมชัน';
+    document.getElementById('promoId').value = promoId || '';
+
+    // Build menu checkbox list
+    const listEl = document.getElementById('promoMenuCheckList');
+    listEl.innerHTML = menuItems.filter(m => m.is_active).map(m => `
+      <label class="menu-check-item">
+        <input type="checkbox" class="promo-menu-chk" value="${m.id}" />
+        ${escHtml(m.name_th || m.name)}
+        <span style="color:var(--text-muted);font-size:11px;margin-left:auto;">฿${Number(m.base_price).toFixed(0)}</span>
+      </label>`).join('');
+
+    if (promoId) {
+      const p = promotions.find(x => x.id === promoId);
+      if (!p) return;
+      document.querySelector(`input[name="promoType"][value="${p.promo_type}"]`).checked = true;
+      document.querySelectorAll('input[name="discountType"]').forEach(r => {
+        r.checked = r.value === p.discount_type;
+      });
+      document.getElementById('promoDiscountValue').value = p.discount_value || '';
+      document.getElementById('promoBundlePrice').value   = p.bundle_price   || '';
+      document.getElementById('promoStartDate').value     = p.start_date || '';
+      document.getElementById('promoEndDate').value       = p.end_date   || '';
+      document.getElementById('promoActive').checked      = p.is_active;
+
+      // Check menus
+      const selectedIds = new Set((p.promotion_items || []).map(pi => pi.menu_id));
+      listEl.querySelectorAll('.promo-menu-chk').forEach(chk => {
+        chk.checked = selectedIds.has(chk.value);
+      });
+    } else {
+      document.querySelector('input[name="promoType"][value="item_discount"]').checked = true;
+      document.querySelector('input[name="discountType"][value="percentage"]').checked = true;
+      document.getElementById('promoDiscountValue').value = '';
+      document.getElementById('promoBundlePrice').value   = '';
+      document.getElementById('promoStartDate').value     = '';
+      document.getElementById('promoEndDate').value       = '';
+      document.getElementById('promoActive').checked      = true;
+    }
+
+    onPromoTypeChange();
+    document.getElementById('promoModal').classList.add('show');
+  }
+
+  function closePromoModal() { document.getElementById('promoModal').classList.remove('show'); }
+
+  function onPromoTypeChange() {
+    const isBundle = document.querySelector('input[name="promoType"]:checked')?.value === 'bundle';
+    document.getElementById('promoDiscountFields').style.display = isBundle ? 'none' : '';
+    document.getElementById('promoBundleFields').style.display   = isBundle ? '' : 'none';
+  }
+
+  // ── Save promo ──
+  async function savePromo() {
+    const promoType    = document.querySelector('input[name="promoType"]:checked')?.value;
+    const name         = document.getElementById('promoName')?.value.trim();
+    const discountType = document.querySelector('input[name="discountType"]:checked')?.value;
+    const discountVal  = parseFloat(document.getElementById('promoDiscountValue').value);
+    const bundlePrice  = parseFloat(document.getElementById('promoBundlePrice').value);
+    const startDate    = document.getElementById('promoStartDate').value || null;
+    const endDate      = document.getElementById('promoEndDate').value   || null;
+    const isActive     = document.getElementById('promoActive').checked;
+
+    const selectedMenuIds = [...document.querySelectorAll('.promo-menu-chk:checked')].map(c => c.value);
+
+    if (!name) { showToast('กรุณากรอกชื่อโปรโมชัน', true); return; }
+    if (!selectedMenuIds.length) { showToast('กรุณาเลือกเมนูอย่างน้อย 1 รายการ', true); return; }
+
+    if (promoType === 'item_discount') {
+      if (!discountType) { showToast('กรุณาเลือกประเภทส่วนลด', true); return; }
+      if (isNaN(discountVal) || discountVal <= 0) { showToast('กรุณากรอกมูลค่าส่วนลด', true); return; }
+      if (discountType === 'percentage' && discountVal > 100) { showToast('เปอร์เซ็นต์ไม่เกิน 100%', true); return; }
+    }
+    if (promoType === 'bundle') {
+      if (isNaN(bundlePrice) || bundlePrice <= 0) { showToast('กรุณากรอกราคาเซต', true); return; }
+      if (selectedMenuIds.length < 2) { showToast('เซตต้องมีอย่างน้อย 2 เมนู', true); return; }
+    }
+
+    const payload = {
+      name_th:        name,
+      name:           name,
+      promo_type:     promoType,
+      discount_type:  promoType === 'item_discount' ? discountType : null,
+      discount_value: promoType === 'item_discount' ? discountVal  : null,
+      bundle_price:   promoType === 'bundle'        ? bundlePrice  : null,
+      start_date:     startDate,
+      end_date:       endDate,
+      is_active:      isActive,
+      shop_id:        shopId,
+    };
+
+    try {
+      let promoId = editingPromoId;
+
+      if (promoId) {
+        const { error } = await supabase.from('promotions').update(payload).eq('id', promoId);
+        if (error) throw error;
+        // Delete + re-insert items
+        await supabase.from('promotion_items').delete().eq('promotion_id', promoId);
+      } else {
+        const { data, error } = await supabase.from('promotions').insert(payload).select('id').single();
+        if (error) throw error;
+        promoId = data.id;
+      }
+
+      const items = selectedMenuIds.map(mid => ({ promotion_id: promoId, menu_id: mid }));
+      const { error: itemErr } = await supabase.from('promotion_items').insert(items);
+      if (itemErr) throw itemErr;
+
+      closePromoModal();
+      showToast(editingPromoId ? 'อัปเดตโปรโมชันเรียบร้อย' : 'เพิ่มโปรโมชันเรียบร้อย');
+      await loadPromotions();
+      renderTable(); // refresh promo badges on menu rows
+    } catch (err) {
+      showToast('บันทึกไม่สำเร็จ: ' + err.message, true);
+    }
+  }
+
+  // ── Toggle active ──
+  async function togglePromoActive(id, currentlyActive) {
+    const { error } = await supabase.from('promotions').update({ is_active: !currentlyActive }).eq('id', id);
+    if (error) { showToast('อัปเดตไม่สำเร็จ', true); return; }
+    showToast(currentlyActive ? 'ปิดโปรโมชันแล้ว' : 'เปิดโปรโมชันแล้ว');
+    await loadPromotions();
+    renderTable();
+  }
+
+  // ── Delete promo ──
+  function openPromoDeleteModal(id, name) {
+    deletingPromoId = id;
+    document.getElementById('promoDeleteName').textContent = name;
+    document.getElementById('promoDeleteModal').classList.add('show');
+  }
+  function closePromoDeleteModal() { document.getElementById('promoDeleteModal').classList.remove('show'); }
+
+  async function confirmDeletePromo() {
+    if (!deletingPromoId) return;
+    const { error } = await supabase.from('promotions').delete().eq('id', deletingPromoId);
+    if (error) { showToast('ลบไม่สำเร็จ: ' + error.message, true); return; }
+    closePromoDeleteModal();
+    showToast('ลบโปรโมชันเรียบร้อย');
+    deletingPromoId = null;
+    await loadPromotions();
+    renderTable();
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function escAttr(s) { return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+  // ---- Render ----
+  function renderTable() {
+    const tbody    = document.getElementById('menuTableBody');
+    const filtered = selectedCatId === 'all'
+      ? menuItems
+      : menuItems.filter(m => m.category_id === selectedCatId);
+
+    updateSummaryBar();
+    if (!localStorage.getItem('glongnom_drag_hint_dismissed')) {
+      document.getElementById('dragHint').style.display = 'flex';
+    }
+
+    if (!filtered.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No items found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    filtered.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.dataset.id  = item.id;
+      tr.draggable   = true;
+
+      tr.innerHTML = `
+        <td class="drag-handle" title="Drag to reorder">
+          <svg width="12" height="16" viewBox="0 0 12 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;opacity:0.4;">
+            <circle cx="4" cy="3" r="1.5" fill="currentColor"/>
+            <circle cx="8" cy="3" r="1.5" fill="currentColor"/>
+            <circle cx="4" cy="8" r="1.5" fill="currentColor"/>
+            <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+            <circle cx="4" cy="13" r="1.5" fill="currentColor"/>
+            <circle cx="8" cy="13" r="1.5" fill="currentColor"/>
+          </svg>
+        </td>
+        <td>
+          <img class="menu-img"
+               src="${item.image_url || ''}"
+               onerror="this.style.background='#e8e8e8';this.src=''"
+               alt="${item.name}" />
+        </td>
+        <td>
+          <strong>${item.name}</strong>
+          ${item.name_th ? `<br><span style="font-size:12px;color:var(--text-muted)">${item.name_th}</span>` : ''}
+          ${buildPromoRowBadge(item.id)}
+        </td>
+        <td>${item.categories?.name || '—'}</td>
+        <td>฿${Number(item.base_price).toFixed(0)}</td>
+        <td class="cost-cell" data-menu-id="${item.id}" data-price="${item.base_price}">—</td>
+        <td class="fc-cell"   data-menu-id="${item.id}" data-price="${item.base_price}"><span class="fc-none">—</span></td>
+        <td>
+          <button class="status-toggle ${item.is_active ? 'on' : ''}"
+                  onclick="toggleActive('${item.id}', ${item.is_active})"
+                  title="${item.is_active ? 'Click to disable' : 'Click to enable'}">
+            <span class="status-toggle-knob"></span>
+          </button>
+        </td>
+        <td>
+          <div class="actions">
+            <button class="btn btn-sm btn-primary" onclick="openEditModal('${item.id}')">Edit</button>
+            <div class="action-menu-wrap">
+              <button class="btn btn-sm btn-ghost action-menu-btn" onclick="toggleActionMenu(this)">•••</button>
+              <div class="action-dropdown">
+                <button onclick="openAssignModal('${item.id}', \`${item.name}\`)">Options</button>
+                <button class="danger" onclick="openDeleteModal('${item.id}', \`${item.name}\`)">Delete</button>
+              </div>
+            </div>
+          </div>
+        </td>`;
+
+      // Drag events
+      tr.addEventListener('dragstart', onDragStart);
+      tr.addEventListener('dragover',  onDragOver);
+      tr.addEventListener('drop',      onDrop);
+      tr.addEventListener('dragend',   onDragEnd);
+      tr.addEventListener('dragleave', onDragLeave);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ---- Drag & Drop ----
+  function onDragStart(e) {
+    dragSrcId = this.dataset.id;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function onDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('tr.drag-over').forEach(r => r.classList.remove('drag-over'));
+    if (this.dataset.id !== dragSrcId) this.classList.add('drag-over');
+  }
+
+  function onDragLeave() {
+    this.classList.remove('drag-over');
+  }
+
+  function onDragEnd() {
+    document.querySelectorAll('tr.dragging, tr.drag-over').forEach(r => {
+      r.classList.remove('dragging', 'drag-over');
+    });
+  }
+
+  async function onDrop(e) {
+    e.preventDefault();
+    const targetId = this.dataset.id;
+    if (!dragSrcId || dragSrcId === targetId) return;
+
+    // Always reorder the FULL list so sort_order stays globally unique.
+    // Dragging in a filtered view still moves items relative to each other
+    // in the global list — no overlapping sort_orders across categories.
+    const fullList  = [...menuItems];
+    const srcIdx    = fullList.findIndex(m => m.id === dragSrcId);
+    const targetIdx = fullList.findIndex(m => m.id === targetId);
+    if (srcIdx === -1 || targetIdx === -1) return;
+
+    const [moved] = fullList.splice(srcIdx, 1);
+    fullList.splice(targetIdx, 0, moved);
+
+    // Reassign sequential sort_order across ALL items
+    const updates = fullList.map((item, idx) => ({
+      id:         item.id,
+      sort_order: idx + 1,
+    }));
+
+    // Optimistic update + re-render
+    menuItems = fullList;
+    renderTable();
+
+    // Save every item's sort_order to Supabase
+    await Promise.all(
+      updates.map(u =>
+        supabase.from('menus').update({ sort_order: u.sort_order }).eq('id', u.id)
+      )
+    );
+
+    showToast('Order saved');
+  }
+
+  // ---- Edit / Add Modal ----
+  function openAddModal() {
+    editingItemId = null;
+    document.getElementById('modalTitle').textContent = 'Add Menu Item';
+    document.getElementById('fName').value     = '';
+    document.getElementById('fNameTh').value   = '';
+    document.getElementById('fPrice').value    = '';
+    document.getElementById('fImageUrl').value = '';
+    document.getElementById('fDesc').value     = '';
+    document.getElementById('fActive').checked = true;
+    document.getElementById('fImageUrl').dispatchEvent(new Event('input'));
+    document.getElementById('menuModal').classList.add('show');
+  }
+
+  function openEditModal(itemId) {
+    const item = menuItems.find(m => m.id === itemId);
+    if (!item) return;
+    editingItemId = itemId;
+    document.getElementById('modalTitle').textContent  = 'Edit Menu Item';
+    document.getElementById('fName').value     = item.name        || '';
+    document.getElementById('fNameTh').value   = item.name_th     || '';
+    document.getElementById('fCategory').value = item.category_id || '';
+    document.getElementById('fPrice').value    = item.base_price  || '';
+    document.getElementById('fImageUrl').value = item.image_url   || '';
+    document.getElementById('fDesc').value     = item.description || '';
+    document.getElementById('fActive').checked = item.is_active;
+    document.getElementById('fImageUrl').dispatchEvent(new Event('input'));
+    document.getElementById('menuModal').classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('menuModal').classList.remove('show');
+  }
+
+  // ---- Image URL Live Preview ----
+  document.getElementById('fImageUrl').addEventListener('input', function() {
+    const wrap = document.getElementById('imgPreviewWrap');
+    const img  = document.getElementById('imgPreview');
+    if (this.value.trim()) {
+      img.src = this.value.trim();
+      wrap.style.display = 'block';
+      img.onerror = () => { wrap.style.display = 'none'; };
+      img.onload  = () => { wrap.style.display = 'block'; img.onerror = null; };
+    } else {
+      wrap.style.display = 'none';
+    }
+  });
+
+  async function saveMenuItem() {
+    const payload = {
+      name:        document.getElementById('fName').value.trim(),
+      name_th:     document.getElementById('fNameTh').value.trim(),
+      category_id: document.getElementById('fCategory').value,
+      base_price:  parseFloat(document.getElementById('fPrice').value) || 0,
+      image_url:   document.getElementById('fImageUrl').value.trim(),
+      description: document.getElementById('fDesc').value.trim(),
+      is_active:   document.getElementById('fActive').checked,
+      shop_id:     shopId,
+    };
+
+    if (!payload.name) { showToast('Name is required'); return; }
+
+    let error;
+    if (editingItemId) {
+      ({ error } = await supabase.from('menus').update(payload).eq('id', editingItemId));
+    } else {
+      ({ error } = await supabase.from('menus').insert(payload));
+    }
+
+    if (error) { showToast('Error: ' + error.message); return; }
+    closeModal();
+    showToast(editingItemId ? 'Item updated' : 'Item added');
+    await loadMenu();
+  }
+
+  // ---- Option Templates ----
+  async function loadOptionTemplates() {
+    const { data } = await supabase
+      .from('option_templates')
+      .select('id, name, name_th, is_required, sort_order')
+      .order('sort_order');
+    optionTemplates = data || [];
+  }
+
+  async function openAssignModal(menuId, menuName) {
+    assigningItemId = menuId;
+    document.getElementById('assignModalSubtitle').textContent = menuName;
+
+    // Load current assignments for this menu
+    const { data: current } = await supabase
+      .from('menu_option_templates')
+      .select('template_id, sort_order')
+      .eq('menu_id', menuId)
+      .order('sort_order');
+
+    const assignedIds = (current || []).map(r => r.template_id);
+
+    // Build checkbox list
+    const list = document.getElementById('assignCheckboxList');
+    list.innerHTML = optionTemplates.map((tpl, idx) => `
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;
+                    border:1.5px solid ${assignedIds.includes(tpl.id) ? 'var(--pink-deep)' : 'var(--border)'};
+                    border-radius:var(--radius-sm);cursor:pointer;transition:border-color 0.15s;"
+             id="assign-label-${tpl.id}">
+        <input type="checkbox" id="assign-${tpl.id}" value="${tpl.id}"
+               ${assignedIds.includes(tpl.id) ? 'checked' : ''}
+               onchange="updateAssignLabel('${tpl.id}')"
+               style="width:16px;height:16px;accent-color:var(--pink-deep);cursor:pointer;" />
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;">${tpl.name}${tpl.name_th ? ` / ${tpl.name_th}` : ''}</div>
+          <div style="font-size:12px;color:var(--text-muted);">${tpl.is_required ? 'Required — single choice' : 'Optional — multi-select add-on'}</div>
+        </div>
+      </label>`).join('');
+
+    document.getElementById('assignModal').classList.add('show');
+  }
+
+  function updateAssignLabel(tplId) {
+    const checked = document.getElementById(`assign-${tplId}`).checked;
+    const label   = document.getElementById(`assign-label-${tplId}`);
+    label.style.borderColor = checked ? 'var(--pink-deep)' : 'var(--border)';
+  }
+
+  function closeAssignModal() {
+    document.getElementById('assignModal').classList.remove('show');
+    assigningItemId = null;
+  }
+
+  async function saveAssignments() {
+    if (!assigningItemId) return;
+
+    const checkedIds = optionTemplates
+      .filter(tpl => document.getElementById(`assign-${tpl.id}`)?.checked)
+      .map(tpl => tpl.id);
+
+    // Delete all current assignments for this menu, then re-insert
+    await supabase.from('menu_option_templates').delete().eq('menu_id', assigningItemId);
+
+    if (checkedIds.length) {
+      const rows = checkedIds.map((tplId, idx) => ({
+        menu_id:     assigningItemId,
+        template_id: tplId,
+        sort_order:  idx + 1,
+      }));
+      const { error } = await supabase.from('menu_option_templates').insert(rows);
+      if (error) { showToast('Error: ' + error.message); return; }
+    }
+
+    closeAssignModal();
+    showToast('Options assigned successfully');
+  }
+
+  // ---- Toggle Active ----
+  async function toggleActive(itemId, currentState) {
+    const { error } = await supabase
+      .from('menus')
+      .update({ is_active: !currentState })
+      .eq('id', itemId);
+    if (error) { showToast('Error: ' + error.message); return; }
+    showToast(!currentState ? '✅ Item enabled' : '⏸️ Item disabled');
+    await loadMenu();
+  }
+
+  // ---- Delete ----
+  function openDeleteModal(itemId, itemName) {
+    deletingItemId = itemId;
+    document.getElementById('deleteItemName').textContent = itemName;
+    document.getElementById('deleteModal').classList.add('show');
+  }
+
+  function closeDeleteModal() {
+    deletingItemId = null;
+    document.getElementById('deleteModal').classList.remove('show');
+  }
+
+  async function confirmDelete() {
+    if (!deletingItemId) return;
+
+    const { error } = await supabase
+      .from('menus')
+      .delete()
+      .eq('id', deletingItemId);
+
+    closeDeleteModal();
+
+    if (error) {
+      if (error.code === '23503') {
+        // Foreign key constraint — item has order history
+        showToast('⚠️ Cannot delete — item has order history. Use Disable instead.');
+      } else {
+        showToast('Error: ' + error.message);
+      }
+      return;
+    }
+
+    showToast('🗑️ Item deleted permanently');
+    await loadMenu();
+  }
+
+  // ---- Toast ----
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  // Close modals on overlay click
+  document.getElementById('menuModal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+  document.getElementById('deleteModal').addEventListener('click',  e => { if (e.target === e.currentTarget) closeDeleteModal(); });
+  document.getElementById('assignModal').addEventListener('click',  e => { if (e.target === e.currentTarget) closeAssignModal(); });
+
+  init();
+</script>
+
+</body>
+</html>

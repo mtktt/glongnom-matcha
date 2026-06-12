@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Glongnom Admin — Option Groups</title>
+  <link rel="stylesheet" href="/css/design-system.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Sarabun', system-ui, sans-serif; background: var(--bg); color: var(--text-primary); }
+
+    /* ---- TRIGGER BAR ---- */
+    .topbar {
+      background: var(--surface-warm); border-bottom: 1.5px solid var(--border);
+      box-shadow: var(--shadow-xs); height: 52px; display: flex; align-items: center;
+      padding: 0 16px; position: fixed; top: 0; left: 0; right: 0; z-index: 1100; gap: 12px;
+    }
+    .topbar-hamburger { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--brown-dark); padding: 4px 6px; flex-shrink: 0; line-height: 1; }
+    .topbar-hamburger:hover { color: var(--brown-mid); }
+    .topbar-brand { font-family: 'Sarabun', system-ui, sans-serif; font-weight: 700; font-size: var(--text-base); color: var(--brown-dark); white-space: nowrap; }
+    .topbar-page-label { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }
+    .topbar-spacer { flex: 1; }
+
+    /* ---- SIDEBAR DRAWER ---- */
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(61,28,2,0.35); z-index: 1150; }
+    .sidebar-backdrop.show { display: block; }
+    #sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; width: 260px;
+      background: var(--surface-warm); border-right: 1.5px solid var(--border);
+      box-shadow: var(--shadow-lg); z-index: 1200;
+      transform: translateX(-100%); transition: transform 0.3s ease;
+      display: flex; flex-direction: column;
+    }
+    #sidebar.open { transform: translateX(0); }
+    .sidebar-header { height: 60px; display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--pink-accent); flex-shrink: 0; }
+    .sidebar-header .sb-brand { font-family: 'Sarabun', system-ui, sans-serif; font-weight: 800; font-size: 16px; color: var(--brown-dark); flex: 1; }
+    .sidebar-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 4px; }
+    .sidebar-close:hover { color: var(--brown-dark); }
+    .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; }
+    .sidebar-nav a { display: block; text-decoration: none; padding: 12px 20px; font-size: 14px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); border-left: 3px solid transparent; transition: background 0.15s, color 0.15s; }
+    .sidebar-nav a:hover { background: var(--surface); color: var(--brown-mid); }
+    .sidebar-nav a.active { background: var(--pink-soft); color: var(--brown-dark); border-left-color: var(--pink-deep); }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+    .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+    .sidebar-user-info { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .sidebar-signout { width: 100%; padding: 9px 14px; border-radius: var(--radius-pill); border: 1.5px solid var(--border); background: none; font-size: 13px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); cursor: pointer; transition: background 0.2s, color 0.2s; }
+    .sidebar-signout:hover { background: var(--error-light); color: var(--error); border-color: var(--error); }
+
+    body { padding-top: 52px; }
+    .container { max-width: 960px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); }
+    .page-header h1 { font-size: var(--text-2xl); font-weight: 700; color: var(--text-primary); }
+    .page-subtitle { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: 28px; }
+
+    .btn {
+      padding: 9px 18px; border-radius: var(--radius-pill); border: none;
+      font-size: var(--text-base); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-primary       { background: var(--brown-dark); color: #fff; }
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-ghost         { background: var(--surface-warm); color: var(--text-secondary); border: 1.5px solid var(--border); }
+    .btn-ghost:hover   { background: var(--pink-soft); }
+    .btn-danger        { background: #fee2e2; color: #b91c1c; border: none; }
+    .btn-danger:hover  { background: #fecaca; }
+    .btn-danger-solid  { background: #dc2626; color: #fff; border: none; }
+    .btn-danger-solid:hover { background: #b91c1c; }
+    .btn-sm { padding: 5px 12px; font-size: 13px; }
+    .btn-xs { padding: 3px 9px; font-size: 12px; }
+
+    /* ---- Template Cards ---- */
+    .templates-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .template-card {
+      background: var(--surface);
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border);
+      overflow: hidden;
+      box-shadow: var(--shadow-xs);
+    }
+
+    .template-header {
+      display: flex;
+      align-items: center;
+      padding: 16px 20px;
+      cursor: pointer;
+      user-select: none;
+      gap: 12px;
+      transition: background 0.2s;
+    }
+    .template-header:hover { background: var(--pink-soft); }
+
+    .template-chevron { font-size: 12px; color: var(--text-muted); transition: transform 0.2s; flex-shrink: 0; }
+    .template-card.open .template-chevron { transform: rotate(90deg); }
+
+    .template-name { font-size: var(--text-base); font-weight: 700; color: var(--text-primary); flex: 1; }
+    .template-meta { font-size: var(--text-xs); color: var(--text-muted); }
+
+    .badge-required { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 600; }
+    .badge-optional { background: var(--surface-warm); color: var(--text-muted); padding: 2px 8px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 600; border: 1px solid var(--border); }
+
+    .template-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    /* ---- Choices ---- */
+    .choices-panel {
+      display: none;
+      border-top: 1.5px solid var(--border);
+      padding: 16px 20px;
+      background: var(--surface-warm);
+    }
+    .template-card.open .choices-panel { display: block; }
+
+    .choice-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .choice-row:last-of-type { border-bottom: none; }
+    .choice-name { flex: 1; font-size: var(--text-base); color: var(--text-primary); }
+    .choice-th   { flex: 1; font-size: var(--text-sm); color: var(--text-muted); }
+    .choice-price { font-size: var(--text-sm); font-weight: 600; color: var(--brown-light); width: 60px; text-align: right; }
+
+    .add-choice-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px dashed var(--border);
+      flex-wrap: wrap;
+    }
+    .add-choice-row input {
+      padding: 7px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--surface);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .add-choice-row input:focus {
+      border-color: var(--pink-deep);
+      box-shadow: 0 0 0 3px rgba(255,133,161,0.18);
+    }
+    .input-name   { flex: 1.5; min-width: 120px; }
+    .input-th     { flex: 1.5; min-width: 120px; }
+    .input-price  { width: 80px; }
+
+    /* ---- Assigned Menus Tags ---- */
+    .assigned-menus { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+    .assigned-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .menu-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .menu-tag {
+      background: var(--pink-soft);
+      color: var(--brown-mid);
+      border: 1px solid var(--pink-accent);
+      border-radius: var(--radius-pill);
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .no-menus { font-size: 12px; color: var(--text-muted); font-style: italic; }
+
+    /* ---- Modal ---- */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(61,28,2,0.25); z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; visibility: hidden;
+      transition: opacity 0.22s ease, visibility 0.22s;
+    }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; visibility: visible; }
+    .modal {
+      background: var(--surface-warm); border-radius: var(--radius-lg); padding: var(--space-8);
+      width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+      border: 1.5px solid var(--border); box-shadow: var(--shadow-lg);
+      transform: scale(0.96) translateY(8px);
+      transition: transform 0.22s ease, opacity 0.22s ease;
+      opacity: 0;
+    }
+    .modal-overlay.show .modal { transform: scale(1) translateY(0); opacity: 1; }
+    .modal h2 { font-size: var(--text-xl); font-weight: 700; margin-bottom: var(--space-6); color: var(--text-primary); }
+    .form-group { margin-bottom: var(--space-4); }
+    .form-group label { display: block; font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); font-size: var(--text-base); font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--surface); color: var(--text-primary); outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--pink-deep);
+      box-shadow: 0 0 0 3px rgba(255,133,161,0.18);
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+    /* ---- Add-choice row labels (4.1) ---- */
+    .choice-input-label { display:block; font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:3px; letter-spacing:0.03em; text-transform:uppercase; }
+    .choice-input-group { display:flex; flex-direction:column; }
+
+    /* ---- Drag-to-reorder (4.2) ---- */
+    .choice-drag-handle { cursor:grab; padding:0 6px; display:flex; align-items:center; color:var(--text-muted); }
+    .choice-row.drag-over { border-top: 2px solid var(--pink-deep); }
+
+    /* ---- Delete affects (4.4) ---- */
+    .delete-affects { font-size:12px; color:var(--text-muted); margin-top:8px; font-style:italic; }
+
+    .empty-list {
+      text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px;
+      background: var(--surface); border-radius: var(--radius-md); border: 1.5px solid var(--border);
+    }
+
+    .toast {
+      position: fixed; bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); right: var(--space-6);
+      background: var(--brown-dark);
+      color: #fff; padding: var(--space-3) var(--space-5); border-radius: var(--radius-pill); font-size: var(--text-base);
+      z-index: 999; opacity: 0; transform: translateY(12px); transition: all 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ---- RESPONSIVE / MOBILE ---- */
+    @media (max-width: 640px) {
+      #sidebar { width: min(82vw, 300px); }
+      .container { padding: var(--space-5) var(--space-4); }
+      .topbar-page-label { display: none; }
+      .page-header { flex-wrap: wrap; gap: var(--space-3); }
+      .page-header h1 { font-size: var(--text-xl); }
+
+      .template-header { flex-wrap: wrap; gap: 8px 12px; padding: 14px 16px; }
+      .template-name { flex-basis: 100%; }
+      .template-actions { margin-left: auto; }
+
+      .choice-row { flex-wrap: wrap; row-gap: 6px; }
+      .choice-name, .choice-th { flex: 1 1 110px; }
+      .choice-price { width: auto; }
+
+      .add-choice-row { flex-direction: column; align-items: stretch; }
+      .input-name, .input-th, .input-price { width: 100%; min-width: 0; }
+      .add-choice-row > button { align-self: stretch !important; }
+
+      .form-row { grid-template-columns: 1fr; }
+      .modal { padding: var(--space-5); max-height: 88vh; }
+      .modal-actions { flex-wrap: wrap; }
+      .modal-actions .btn { flex: 1; }
+
+      .toast { left: var(--space-4); right: var(--space-4); text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Trigger Bar -->
+<div class="topbar">
+  <button class="topbar-hamburger" onclick="openSidebar()" aria-label="Open menu">&#9776;</button>
+  <span class="topbar-brand">Glongnom POS</span>
+  <span class="topbar-page-label">/ Options</span>
+  <div class="topbar-spacer"></div>
+</div>
+
+<!-- Sidebar Backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<!-- Sidebar Drawer -->
+<aside id="sidebar" role="navigation" aria-label="Admin navigation">
+  <div class="sidebar-header">
+    <span class="sb-brand">Glongnom POS</span>
+    <button class="sidebar-close" onclick="closeSidebar()" aria-label="Close menu">&times;</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-group-label">Management</div>
+    <a href="/admin/orders.html">&#129534; Order Queue</a>
+    <a href="/admin/">&#128203; Menu Management</a>
+    <a href="/admin/options.html" class="active">&#9881;&#65039; Options</a>
+    <a href="/admin/customers.html">&#127919; Customers</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Inventory</div>
+    <a href="/admin/inventory.html">&#128230; Inventory</a>
+    <a href="/admin/suppliers.html">&#128666; Suppliers</a>
+    <a href="/admin/purchase-orders.html">&#128722; Purchases</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Analysis</div>
+    <a href="/admin/dashboard.html">&#128202; Dashboard</a>
+    <a href="/admin/reports.html">&#128202; Reports</a>
+    <a href="/admin/accounting.html">&#128210; Accounting</a>
+    <a href="/admin/finance.html">&#128200; Finance</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Setting</div>
+    <a href="/admin/users.html">&#128101; Staff</a>
+    <a href="/admin/printer.html">&#128424;&#65039; Printers</a>
+  </nav>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user-info" id="sidebarUserInfo">Loading…</div>
+    <button class="sidebar-signout" onclick="Auth.signOut()">Sign Out</button>
+  </div>
+</aside>
+
+<div class="container">
+  <div class="page-header">
+    <h1>Option Groups</h1>
+    <button class="btn btn-primary" onclick="openAddTemplateModal()">+ New Option Group</button>
+  </div>
+  <p class="page-subtitle">Create reusable option groups (Sweetness, Ice, Add-ons…) and assign them to menu items.</p>
+
+  <div class="error-banner" id="loadErrorBanner">
+    <span class="error-banner-msg">Failed to load option groups — check your connection.</span>
+    <button class="error-banner-retry" onclick="init()">Retry</button>
+  </div>
+
+  <div class="templates-list" id="templatesList">
+    <div class="skeleton skeleton-card"></div>
+    <div class="skeleton skeleton-card"></div>
+  </div>
+</div>
+
+<!-- Add/Edit Template Modal -->
+<div class="modal-overlay" id="templateModal">
+  <div class="modal">
+    <h2 id="templateModalTitle">New Option Group</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Name (EN)</label>
+        <input type="text" id="tName" placeholder="Sweetness" />
+      </div>
+      <div class="form-group">
+        <label>Name (TH)</label>
+        <input type="text" id="tNameTh" placeholder="ความหวาน" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Type</label>
+      <select id="tRequired">
+        <option value="true">Required (customer must pick one)</option>
+        <option value="false">Optional / Add-on (multi-select)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeTemplateModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTemplate()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Choice Modal -->
+<div class="modal-overlay" id="choiceModal">
+  <div class="modal">
+    <h2>Edit Choice</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Name (EN)</label>
+        <input type="text" id="cName" placeholder="50%" />
+      </div>
+      <div class="form-group">
+        <label>Name (TH)</label>
+        <input type="text" id="cNameTh" placeholder="50%" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Extra Price (฿)</label>
+      <input type="number" id="cPrice" placeholder="0" min="0" step="1" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeChoiceModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveChoice()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal" style="max-width:400px;text-align:center;">
+    <div style="font-size:40px;margin-bottom:12px;">🗑️</div>
+    <h2 id="deleteModalTitle">Delete?</h2>
+    <p style="font-size:14px;color:var(--text-muted);margin:10px 0 0;line-height:1.6;" id="deleteModalDesc"></p>
+    <div class="delete-affects" id="deleteAffects"></div>
+    <div class="modal-actions" style="justify-content:center;margin-top:24px;">
+      <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn btn-danger-solid" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ---- Sidebar Open / Close ----
+  function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebarBackdrop').classList.add('show'); document.body.style.overflow = 'hidden'; }
+  function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarBackdrop').classList.remove('show'); document.body.style.overflow = ''; }
+
+  let templates  = [];
+  let menus      = [];
+  let assignments = {}; // templateId → [menuId, ...]
+  let shopId     = null;
+
+  let editingTemplateId = null;
+  let editingChoiceId   = null;
+  let editingChoiceTplId = null;
+  let deletingType      = null; // 'template' | 'choice'
+  let deletingId        = null;
+  let deletingParentId  = null;
+
+  // ---- Init ----
+  async function init() {
+    const profile = await Auth.require(['admin', 'manager']);
+    if (!profile) return;
+    document.getElementById('sidebarUserInfo').textContent = (profile.name || '') + (profile.email ? ' · ' + profile.email : '');
+
+    const { data: shop } = await supabase.from('shops').select('id').single();
+    shopId = shop?.id;
+
+    try {
+      await Promise.all([loadTemplates(), loadMenus()]);
+      document.getElementById('loadErrorBanner').classList.remove('show');
+      renderTemplates();
+    } catch (err) {
+      console.error(err);
+      document.getElementById('loadErrorBanner').classList.add('show');
+    }
+  }
+
+  async function loadTemplates() {
+    const { data, error } = await supabase
+      .from('option_templates')
+      .select('*, option_template_choices(*)')
+      .order('sort_order');
+    if (error) throw error;
+    templates = data || [];
+  }
+
+  async function loadMenus() {
+    const { data: menuData, error: menuErr } = await supabase
+      .from('menus')
+      .select('id, name, name_th')
+      .order('sort_order');
+    if (menuErr) throw menuErr;
+    menus = menuData || [];
+
+    const { data: assignData } = await supabase
+      .from('menu_option_templates')
+      .select('menu_id, template_id');
+
+    assignments = {};
+    (assignData || []).forEach(a => {
+      if (!assignments[a.template_id]) assignments[a.template_id] = [];
+      assignments[a.template_id].push(a.menu_id);
+    });
+  }
+
+  // ---- Render ----
+  function renderTemplates() {
+    const list = document.getElementById('templatesList');
+    if (!templates.length) {
+      list.innerHTML = '<div class="empty-list">No option groups yet. Click "+ New Option Group" to create one.</div>';
+      return;
+    }
+
+    list.innerHTML = '';
+    templates.forEach(tpl => {
+      const choices   = (tpl.option_template_choices || []).sort((a, b) => a.sort_order - b.sort_order);
+      const menuIds   = assignments[tpl.id] || [];
+      const menuNames = menuIds.map(mid => {
+        const m = menus.find(m => m.id === mid);
+        return m ? (m.name_th || m.name) : null;
+      }).filter(Boolean);
+
+      const card = document.createElement('div');
+      card.className    = 'template-card';
+      card.dataset.id   = tpl.id;
+
+      card.innerHTML = `
+        <div class="template-header"
+             onclick="toggleCard('${tpl.id}')"
+             tabindex="0"
+             role="button"
+             aria-expanded="false"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleCard('${tpl.id}')}">
+          <span class="template-chevron">▶</span>
+          <span class="template-name">${tpl.name}${tpl.name_th ? ` <span style="font-weight:400;font-size:13px;color:var(--text-muted);">/ ${tpl.name_th}</span>` : ''}</span>
+          <span class="template-meta">${choices.length} choice${choices.length !== 1 ? 's' : ''}</span>
+          <span class="${tpl.is_required ? 'badge-required' : 'badge-optional'}">${tpl.is_required ? 'Required' : 'Optional'}</span>
+          <div class="template-actions" onclick="event.stopPropagation()">
+            <button class="btn btn-ghost btn-sm" onclick="openEditTemplateModal('${tpl.id}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="openDeleteModal('template','${tpl.id}',null,'${tpl.name}')">Delete</button>
+          </div>
+        </div>
+
+        <div class="choices-panel">
+          <!-- Assigned menus moved to top of choices panel (4.5) -->
+          <div class="assigned-menus" style="margin-top:0;margin-bottom:12px;border-top:none;border-bottom:1px dashed var(--border);padding-bottom:12px;">
+            <div class="assigned-label">Assigned to menus</div>
+            <div class="menu-tags">
+              ${menuNames.length
+                ? menuNames.map(n => `<span class="menu-tag">${n}</span>`).join('')
+                : '<span class="no-menus">Not assigned to any menu yet</span>'}
+            </div>
+          </div>
+
+          <div class="choices-rows" id="choices-rows-${tpl.id}">
+            ${choices.map(c => `
+              <div class="choice-row" id="choice-row-${c.id}" data-choice-id="${c.id}" draggable="true">
+                <span class="choice-drag-handle" title="Drag to reorder">
+                  <svg width="10" height="14" viewBox="0 0 12 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;opacity:0.4;">
+                    <circle cx="4" cy="3" r="1.5" fill="currentColor"/>
+                    <circle cx="8" cy="3" r="1.5" fill="currentColor"/>
+                    <circle cx="4" cy="8" r="1.5" fill="currentColor"/>
+                    <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+                    <circle cx="4" cy="13" r="1.5" fill="currentColor"/>
+                    <circle cx="8" cy="13" r="1.5" fill="currentColor"/>
+                  </svg>
+                </span>
+                <span class="choice-name">${c.name}</span>
+                <span class="choice-th">${c.name_th || ''}</span>
+                <span class="choice-price">${c.additional_price > 0 ? '+฿' + c.additional_price : '฿0'}</span>
+                <button class="btn btn-ghost btn-xs" onclick="openEditChoiceModal('${tpl.id}','${c.id}')">Edit</button>
+                <button class="btn btn-danger btn-xs" onclick="openDeleteModal('choice','${c.id}','${tpl.id}','${c.name}')">✕</button>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Add new choice inline with labels (4.1) -->
+          <div class="add-choice-row">
+            <div class="choice-input-group input-name">
+              <label class="choice-input-label">Name EN</label>
+              <input type="text" id="nc-name-${tpl.id}" placeholder="e.g. 50%" />
+            </div>
+            <div class="choice-input-group input-th">
+              <label class="choice-input-label">Name TH</label>
+              <input type="text" id="nc-th-${tpl.id}" placeholder="เช่น 50%" />
+            </div>
+            <div class="choice-input-group input-price">
+              <label class="choice-input-label">Price +฿</label>
+              <input type="number" id="nc-price-${tpl.id}" placeholder="0" min="0" step="1" />
+            </div>
+            <button class="btn btn-primary btn-sm" style="align-self:flex-end;" onclick="addChoice('${tpl.id}')">+ Add</button>
+          </div>
+        </div>`;
+
+      list.appendChild(card);
+    });
+  }
+
+  function toggleCard(tplId) {
+    const card   = document.querySelector(`.template-card[data-id="${tplId}"]`);
+    card.classList.toggle('open');
+    // Update aria-expanded for accessibility (4.3)
+    const header = card.querySelector('.template-header');
+    if (header) {
+      header.setAttribute('aria-expanded', card.classList.contains('open') ? 'true' : 'false');
+    }
+    // Init drag after opening (4.2)
+    if (card.classList.contains('open')) {
+      initChoiceDrag(`choices-rows-${tplId}`);
+    }
+  }
+
+  // ---- Template CRUD ----
+  function openAddTemplateModal() {
+    editingTemplateId = null;
+    document.getElementById('templateModalTitle').textContent = 'New Option Group';
+    document.getElementById('tName').value     = '';
+    document.getElementById('tNameTh').value   = '';
+    document.getElementById('tRequired').value = 'true';
+    document.getElementById('templateModal').classList.add('show');
+  }
+
+  function openEditTemplateModal(tplId) {
+    const tpl = templates.find(t => t.id === tplId);
+    if (!tpl) return;
+    editingTemplateId = tplId;
+    document.getElementById('templateModalTitle').textContent = 'Edit Option Group';
+    document.getElementById('tName').value     = tpl.name    || '';
+    document.getElementById('tNameTh').value   = tpl.name_th || '';
+    document.getElementById('tRequired').value = tpl.is_required ? 'true' : 'false';
+    document.getElementById('templateModal').classList.add('show');
+  }
+
+  function closeTemplateModal() {
+    document.getElementById('templateModal').classList.remove('show');
+  }
+
+  async function saveTemplate() {
+    const payload = {
+      name:        document.getElementById('tName').value.trim(),
+      name_th:     document.getElementById('tNameTh').value.trim(),
+      is_required: document.getElementById('tRequired').value === 'true',
+      shop_id:     shopId,
+    };
+    if (!payload.name) { showToast('Name is required'); return; }
+
+    let error;
+    if (editingTemplateId) {
+      ({ error } = await supabase.from('option_templates').update(payload).eq('id', editingTemplateId));
+    } else {
+      payload.sort_order = templates.length + 1;
+      ({ error } = await supabase.from('option_templates').insert(payload));
+    }
+    if (error) { showToast('Error: ' + error.message); return; }
+    closeTemplateModal();
+    showToast(editingTemplateId ? 'Option group updated' : 'Option group created');
+    await loadTemplates();
+    renderTemplates();
+  }
+
+  // ---- Choice CRUD ----
+  async function addChoice(tplId) {
+    const name  = document.getElementById(`nc-name-${tplId}`).value.trim();
+    const nameTh= document.getElementById(`nc-th-${tplId}`).value.trim();
+    const price = parseFloat(document.getElementById(`nc-price-${tplId}`).value) || 0;
+    if (!name) { showToast('Choice name is required'); return; }
+
+    const tpl     = templates.find(t => t.id === tplId);
+    const choices = tpl?.option_template_choices || [];
+
+    const { error } = await supabase.from('option_template_choices').insert({
+      template_id:      tplId,
+      name,
+      name_th:          nameTh,
+      additional_price: price,
+      sort_order:       choices.length + 1,
+    });
+    if (error) { showToast('Error: ' + error.message); return; }
+
+    document.getElementById(`nc-name-${tplId}`).value  = '';
+    document.getElementById(`nc-th-${tplId}`).value    = '';
+    document.getElementById(`nc-price-${tplId}`).value = '';
+    showToast('Choice added');
+    await loadTemplates();
+    renderTemplates();
+    // Re-open the card
+    const card = document.querySelector(`.template-card[data-id="${tplId}"]`);
+    if (card) card.classList.add('open');
+  }
+
+  function openEditChoiceModal(tplId, choiceId) {
+    const tpl    = templates.find(t => t.id === tplId);
+    const choice = tpl?.option_template_choices?.find(c => c.id === choiceId);
+    if (!choice) return;
+    editingChoiceId    = choiceId;
+    editingChoiceTplId = tplId;
+    document.getElementById('cName').value  = choice.name    || '';
+    document.getElementById('cNameTh').value= choice.name_th || '';
+    document.getElementById('cPrice').value = choice.additional_price || 0;
+    document.getElementById('choiceModal').classList.add('show');
+  }
+
+  function closeChoiceModal() {
+    document.getElementById('choiceModal').classList.remove('show');
+  }
+
+  async function saveChoice() {
+    const { error } = await supabase.from('option_template_choices').update({
+      name:             document.getElementById('cName').value.trim(),
+      name_th:          document.getElementById('cNameTh').value.trim(),
+      additional_price: parseFloat(document.getElementById('cPrice').value) || 0,
+    }).eq('id', editingChoiceId);
+    if (error) { showToast('Error: ' + error.message); return; }
+    closeChoiceModal();
+    showToast('Choice updated');
+    await loadTemplates();
+    const openId = editingChoiceTplId;
+    renderTemplates();
+    const card = document.querySelector(`.template-card[data-id="${openId}"]`);
+    if (card) card.classList.add('open');
+  }
+
+  // ---- Delete ----
+  function openDeleteModal(type, id, parentId, name) {
+    deletingType     = type;
+    deletingId       = id;
+    deletingParentId = parentId;
+    const isTemplate = type === 'template';
+    document.getElementById('deleteModalTitle').textContent = isTemplate ? 'Delete Option Group?' : 'Delete Choice?';
+    document.getElementById('deleteModalDesc').textContent  = isTemplate
+      ? `"${name}" and all its choices will be deleted, and it will be unassigned from all menus. This cannot be undone.`
+      : `"${name}" will be permanently removed.`;
+
+    // Show affected menus (4.4)
+    const affectsEl = document.getElementById('deleteAffects');
+    if (affectsEl) {
+      if (isTemplate) {
+        const assignedMenuIds = assignments[id] || [];
+        if (assignedMenuIds.length) {
+          const assignedMenuNames = assignedMenuIds.map(mid => {
+            const m = menus.find(m => m.id === mid);
+            return m ? (m.name_th || m.name) : null;
+          }).filter(Boolean);
+          const names = assignedMenuNames.slice(0, 3).join(', ');
+          const extra = assignedMenuNames.length > 3 ? ` (+${assignedMenuNames.length - 3} more)` : '';
+          affectsEl.textContent = 'Will unassign from: ' + names + extra;
+        } else {
+          affectsEl.textContent = 'Not currently assigned to any menus.';
+        }
+      } else {
+        affectsEl.textContent = '';
+      }
+    }
+
+    document.getElementById('deleteModal').classList.add('show');
+  }
+
+  function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('show');
+  }
+
+  async function confirmDelete() {
+    let error;
+    if (deletingType === 'template') {
+      ({ error } = await supabase.from('option_templates').delete().eq('id', deletingId));
+    } else {
+      ({ error } = await supabase.from('option_template_choices').delete().eq('id', deletingId));
+    }
+    closeDeleteModal();
+    if (error) { showToast('Error: ' + error.message); return; }
+    showToast(deletingType === 'template' ? 'Option group deleted' : 'Choice deleted');
+    const openId = deletingParentId;
+    await loadTemplates();
+    renderTemplates();
+    if (openId) {
+      const card = document.querySelector(`.template-card[data-id="${openId}"]`);
+      if (card) card.classList.add('open');
+    }
+  }
+
+  // ---- Drag-to-reorder choices (4.2) ----
+  function initChoiceDrag(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    let dragSrc = null;
+    container.querySelectorAll('.choice-row[draggable]').forEach(row => {
+      row.addEventListener('dragstart', e => { dragSrc = row; row.style.opacity = '0.4'; });
+      row.addEventListener('dragend',   e => { row.style.opacity = ''; container.querySelectorAll('.choice-row').forEach(r => r.classList.remove('drag-over')); });
+      row.addEventListener('dragover',  e => { e.preventDefault(); row.classList.add('drag-over'); });
+      row.addEventListener('dragleave', e => row.classList.remove('drag-over'));
+      row.addEventListener('drop', async e => {
+        e.preventDefault();
+        if (dragSrc === row) return;
+        const rows = [...container.querySelectorAll('.choice-row[draggable]')];
+        const fromIdx = rows.indexOf(dragSrc);
+        const toIdx   = rows.indexOf(row);
+        if (fromIdx < 0 || toIdx < 0) return;
+        rows.splice(fromIdx, 1);
+        rows.splice(toIdx, 0, dragSrc);
+        rows.forEach(r => container.appendChild(r));
+        // Update sort_order in Supabase
+        for (let i = 0; i < rows.length; i++) {
+          await supabase.from('option_template_choices').update({ sort_order: i + 1 }).eq('id', rows[i].dataset.choiceId);
+        }
+      });
+    });
+  }
+
+  // ---- Toast ----
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  document.getElementById('templateModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeTemplateModal(); });
+  document.getElementById('choiceModal').addEventListener('click',   e => { if (e.target === e.currentTarget) closeChoiceModal(); });
+  document.getElementById('deleteModal').addEventListener('click',   e => { if (e.target === e.currentTarget) closeDeleteModal(); });
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Glongnom Admin — Users</title>
+  <link rel="stylesheet" href="/css/design-system.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--bg); color: var(--text-primary);
+    }
+    /* ---- TRIGGER BAR ---- */
+    .topbar {
+      background: var(--surface-warm); border-bottom: 1.5px solid var(--border);
+      box-shadow: var(--shadow-xs); height: 52px; display: flex; align-items: center;
+      padding: 0 16px; position: fixed; top: 0; left: 0; right: 0; z-index: 1100; gap: 12px;
+    }
+    .topbar-hamburger { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--brown-dark); padding: 4px 6px; flex-shrink: 0; line-height: 1; }
+    .topbar-hamburger:hover { color: var(--brown-mid); }
+    .topbar-brand { font-family: 'Sarabun', system-ui, sans-serif; font-weight: 700; font-size: var(--text-base); color: var(--brown-dark); white-space: nowrap; }
+    .topbar-page-label { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }
+    .topbar-spacer { flex: 1; }
+
+    /* ---- SIDEBAR DRAWER ---- */
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(61,28,2,0.35); z-index: 1150; }
+    .sidebar-backdrop.show { display: block; }
+    #sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; width: 260px;
+      background: var(--surface-warm); border-right: 1.5px solid var(--border);
+      box-shadow: var(--shadow-lg); z-index: 1200;
+      transform: translateX(-100%); transition: transform 0.3s ease;
+      display: flex; flex-direction: column;
+    }
+    #sidebar.open { transform: translateX(0); }
+    .sidebar-header { height: 60px; display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--pink-accent); flex-shrink: 0; }
+    .sidebar-header .sb-brand { font-family: 'Sarabun', system-ui, sans-serif; font-weight: 800; font-size: 16px; color: var(--brown-dark); flex: 1; }
+    .sidebar-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 4px; }
+    .sidebar-close:hover { color: var(--brown-dark); }
+    .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; }
+    .sidebar-nav a { display: block; text-decoration: none; padding: 12px 20px; font-size: 14px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); border-left: 3px solid transparent; transition: background 0.15s, color 0.15s; }
+    .sidebar-nav a:hover { background: var(--surface); color: var(--brown-mid); }
+    .sidebar-nav a.active { background: var(--pink-soft); color: var(--brown-dark); border-left-color: var(--pink-deep); }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+    .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+    .sidebar-user-info { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .sidebar-signout { width: 100%; padding: 9px 14px; border-radius: var(--radius-pill); border: 1.5px solid var(--border); background: none; font-size: 13px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); cursor: pointer; transition: background 0.2s, color 0.2s; }
+    .sidebar-signout:hover { background: var(--error-light); color: var(--error); border-color: var(--error); }
+
+    body { padding-top: 52px; }
+    .container { max-width: 900px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+    .page-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 28px;
+    }
+    .page-header h1 { font-size: var(--text-2xl); font-weight: 700; color: var(--text-primary); }
+
+    .btn {
+      padding: 9px 18px; border-radius: var(--radius-pill); border: none;
+      font-size: var(--text-base); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-primary       { background: var(--brown-dark); color: #fff; }
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-ghost         { background: var(--surface-warm); color: var(--text-secondary); border: 1.5px solid var(--border); }
+    .btn-ghost:hover   { background: var(--pink-soft); }
+    .btn-sm { padding: 5px 12px; font-size: 13px; }
+    /* ---- Deactivate/Activate button classes (5.1) ---- */
+    .btn-deactivate { background: var(--error-light); color: var(--error); border: 1.5px solid rgba(192,57,43,0.3); }
+    .btn-deactivate:hover { background: #ffd5d5; }
+    .btn-activate   { background: #f0fdf4; color: #16a34a; border: 1.5px solid #86efac; }
+    .btn-activate:hover { background: #dcfce7; }
+    /* ---- Email cell (5.2) ---- */
+    .email-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size:12px; color:var(--text-muted); }
+
+    .table-wrap {
+      background: var(--surface); border-radius: var(--radius-md);
+      border: 1.5px solid var(--border); overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      background: var(--surface-warm); padding: var(--space-3) var(--space-4); text-align: left;
+      font-size: var(--text-xs); font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1.5px solid var(--border);
+    }
+    tbody td {
+      padding: 14px var(--space-4); font-size: var(--text-base);
+      border-bottom: 1px solid var(--border); vertical-align: middle;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--pink-soft); }
+
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--pink-fill); color: var(--brown-dark);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700;
+    }
+
+    .role-badge {
+      display: inline-block; padding: 3px 10px; border-radius: var(--radius-pill);
+      font-size: var(--text-xs); font-weight: 600;
+    }
+    .role-admin   { background: #7c3aed; color: #fff; }
+    .role-manager { background: #dbeafe; color: #1d4ed8; }
+    .role-cashier { background: #d4edda; color: #155724; }
+    .role-kitchen { background: #fff3cd; color: #856404; }
+    .role-staff   { background: var(--surface-warm); color: var(--text-secondary); border: 1px solid var(--border); }
+
+    .status-dot {
+      display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; margin-right: 6px;
+    }
+    .dot-active   { background: #22c55e; }
+    .dot-inactive { background: #d1d5db; }
+
+    /* ---- Modal ---- */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(61,28,2,0.25); z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; visibility: hidden;
+      transition: opacity 0.22s ease, visibility 0.22s;
+    }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; visibility: visible; }
+    .modal {
+      background: var(--surface-warm); border-radius: var(--radius-lg); padding: var(--space-8);
+      width: 100%; max-width: 440px;
+      border: 1.5px solid var(--border); box-shadow: var(--shadow-lg);
+      transform: scale(0.96) translateY(8px);
+      transition: transform 0.22s ease, opacity 0.22s ease;
+      opacity: 0;
+    }
+    .modal-overlay.show .modal { transform: scale(1) translateY(0); opacity: 1; }
+    .modal h2 { font-size: var(--text-xl); font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
+    .modal .subtitle { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: var(--space-6); }
+    .form-group { margin-bottom: var(--space-4); }
+    .form-group label {
+      display: block; font-size: var(--text-sm); font-weight: 600;
+      color: var(--text-secondary); margin-bottom: 6px;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); font-size: var(--text-base);
+      font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--surface); color: var(--text-primary); outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: var(--pink-deep);
+      box-shadow: 0 0 0 3px rgba(255,133,161,0.18);
+    }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+    .toast {
+      position: fixed; bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); right: var(--space-6);
+      background: var(--brown-dark);
+      color: #fff; padding: var(--space-3) var(--space-5); border-radius: var(--radius-pill); font-size: var(--text-base);
+      z-index: 999; opacity: 0; transform: translateY(12px);
+      transition: all 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px; }
+
+    /* ---- RESPONSIVE / MOBILE ---- */
+    @media (max-width: 640px) {
+      #sidebar { width: min(82vw, 300px); }
+      .container { padding: var(--space-5) var(--space-4); }
+      .topbar-page-label { display: none; }
+      .page-header { flex-wrap: wrap; gap: var(--space-3); }
+      .page-header h1 { font-size: var(--text-xl); }
+
+      .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      table thead th:nth-child(2), table tbody td:nth-child(2) { display: none; }
+      table thead th, table tbody td { padding: 10px var(--space-3); font-size: var(--text-sm); }
+      .role-badge { white-space: nowrap; }
+
+      .modal { padding: var(--space-5); max-height: 88vh; overflow-y: auto; }
+      .modal-actions { flex-wrap: wrap; }
+      .modal-actions .btn { flex: 1; }
+
+      .toast { left: var(--space-4); right: var(--space-4); text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Trigger Bar -->
+<div class="topbar">
+  <button class="topbar-hamburger" onclick="openSidebar()" aria-label="Open menu">&#9776;</button>
+  <span class="topbar-brand">Glongnom POS</span>
+  <span class="topbar-page-label">/ Staff</span>
+  <div class="topbar-spacer"></div>
+</div>
+
+<!-- Sidebar Backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<!-- Sidebar Drawer -->
+<aside id="sidebar" role="navigation" aria-label="Admin navigation">
+  <div class="sidebar-header">
+    <span class="sb-brand">Glongnom POS</span>
+    <button class="sidebar-close" onclick="closeSidebar()" aria-label="Close menu">&times;</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-group-label">Management</div>
+    <a href="/admin/orders.html">&#129534; Order Queue</a>
+    <a href="/admin/">&#128203; Menu Management</a>
+    <a href="/admin/options.html">&#9881;&#65039; Options</a>
+    <a href="/admin/customers.html">&#127919; Customers</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Inventory</div>
+    <a href="/admin/inventory.html">&#128230; Inventory</a>
+    <a href="/admin/suppliers.html">&#128666; Suppliers</a>
+    <a href="/admin/purchase-orders.html">&#128722; Purchases</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Analysis</div>
+    <a href="/admin/dashboard.html">&#128202; Dashboard</a>
+    <a href="/admin/reports.html">&#128202; Reports</a>
+    <a href="/admin/accounting.html">&#128210; Accounting</a>
+    <a href="/admin/finance.html">&#128200; Finance</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Setting</div>
+    <a href="/admin/users.html" class="active">&#128101; Staff</a>
+    <a href="/admin/printer.html">&#128424;&#65039; Printers</a>
+  </nav>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user-info" id="sidebarUserInfo">Loading…</div>
+    <button class="sidebar-signout" onclick="Auth.signOut()">Sign Out</button>
+  </div>
+</aside>
+
+<div class="container">
+  <div class="page-header">
+    <h1>User Management</h1>
+    <button class="btn btn-primary" onclick="openInviteModal()">+ Invite Staff</button>
+  </div>
+
+  <div class="error-banner" id="loadErrorBanner">
+    <span class="error-banner-msg">Failed to load users — check your connection.</span>
+    <button class="error-banner-retry" onclick="loadUsers()">Retry</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="usersTableBody">
+        <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+        <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+        <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Invite Modal -->
+<div class="modal-overlay" id="inviteModal">
+  <div class="modal">
+    <h2>Invite Staff Member</h2>
+    <p class="subtitle">They'll receive an email with a link to set their password.</p>
+    <div class="msg" id="inviteMsg"></div>
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="inviteName" placeholder="e.g. Somchai" />
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="inviteEmail" placeholder="staff@glongnom.com" />
+    </div>
+    <div class="form-group">
+      <label>Role</label>
+      <select id="inviteRole">
+        <option value="cashier">Cashier</option>
+        <option value="kitchen">Kitchen</option>
+        <option value="staff">Staff</option>
+        <option value="manager">Manager</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeInviteModal()">Cancel</button>
+      <button class="btn btn-primary" id="inviteBtn" onclick="sendInvite()">Send Invite</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Role Modal -->
+<div class="modal-overlay" id="editRoleModal">
+  <div class="modal">
+    <h2>Change Role</h2>
+    <p class="subtitle" id="editRoleSubtitle"></p>
+    <div class="form-group">
+      <label>New Role</label>
+      <select id="editRoleSelect">
+        <option value="admin">Admin</option>
+        <option value="manager">Manager</option>
+        <option value="cashier">Cashier</option>
+        <option value="kitchen">Kitchen</option>
+        <option value="staff">Staff</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeEditRoleModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRole()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ---- Sidebar Open / Close ----
+  function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebarBackdrop').classList.add('show'); document.body.style.overflow = 'hidden'; }
+  function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarBackdrop').classList.remove('show'); document.body.style.overflow = ''; }
+
+  let users        = [];
+  let currentUser  = null;
+  let editingUserId = null;
+  let sessionToken  = null;
+
+  // HTML escape helper (5.2)
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function init() {
+    const profile = await Auth.require(['admin', 'manager']);
+    if (!profile) return;
+    currentUser = profile;
+    document.getElementById('sidebarUserInfo').textContent = (profile.name || '') + (profile.email ? ' · ' + profile.email : '');
+
+    // Get session token for Netlify Function auth
+    const { data: { session } } = await supabase.auth.getSession();
+    sessionToken = session?.access_token || null;
+
+    await loadUsers();
+  }
+
+  async function loadUsers() {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('id, name, role, is_active, created_at')
+      .order('created_at');
+
+    if (error) {
+      showToast('Error loading users');
+      document.getElementById('loadErrorBanner').classList.add('show');
+      return;
+    }
+    document.getElementById('loadErrorBanner').classList.remove('show');
+    users = data || [];
+    renderTable();
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('usersTableBody');
+    if (!users.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No users found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = users.map(u => {
+      const initial = (u.name || '?')[0].toUpperCase();
+      const isMe    = u.id === currentUser?.id;
+      // 5.5 — highlight current user row; inline "You" marker in name cell
+      const rowStyle = isMe ? ' style="background:var(--pink-soft);"' : '';
+      return `
+        <tr${rowStyle}>
+          <td>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="avatar">${initial}</div>
+              <div>
+                <div style="font-weight:600;">${u.name || '—'}${isMe ? '<span style="color:var(--pink-deep);font-weight:700;font-size:11px;margin-left:6px;">(You)</span>' : ''}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="email-cell">${u.email ? escHtml(u.email) : '—'}</span>
+          </td>
+          <td>
+            <span class="role-badge role-${u.role}">${u.role}</span>
+          </td>
+          <td>
+            <span class="status-dot ${u.is_active ? 'dot-active' : 'dot-inactive'}"></span>
+            ${u.is_active ? 'Active' : 'Inactive'}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-ghost btn-sm"
+                      onclick="openEditRoleModal('${u.id}', '${u.name || u.id}', '${u.role}')"
+                      ${isMe ? 'disabled title="Cannot change your own role"' : ''}>
+                Change Role
+              </button>
+              <button class="btn btn-sm ${u.is_active ? 'btn-deactivate' : 'btn-activate'}"
+                      onclick="toggleActive('${u.id}', ${u.is_active}, '${(u.name || u.id).replace(/'/g, "\\'")}')"
+                      ${isMe ? 'disabled title="You cannot deactivate your own account"' : ''}>
+                ${u.is_active ? 'Deactivate' : 'Activate'}
+              </button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ---- Invite ----
+  function openInviteModal() {
+    document.getElementById('inviteMsg').className = 'msg';
+    document.getElementById('inviteMsg').textContent = '';
+    document.getElementById('inviteName').value  = '';
+    document.getElementById('inviteEmail').value = '';
+    document.getElementById('inviteRole').value  = 'cashier';
+    document.getElementById('inviteModal').classList.add('show');
+  }
+
+  function closeInviteModal() {
+    document.getElementById('inviteModal').classList.remove('show');
+  }
+
+  async function sendInvite() {
+    const name  = document.getElementById('inviteName').value.trim();
+    const email = document.getElementById('inviteEmail').value.trim();
+    const role  = document.getElementById('inviteRole').value;
+    const btn   = document.getElementById('inviteBtn');
+    const msgEl = document.getElementById('inviteMsg');
+
+    if (!email) { msgEl.textContent = 'Email is required.'; msgEl.className = 'msg error'; return; }
+
+    btn.disabled    = true;
+    btn.textContent = 'Sending…';
+    msgEl.className = 'msg';
+
+    const res = await fetch('/.netlify/functions/invite-user', {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + sessionToken,
+      },
+      body: JSON.stringify({ email, role, name }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      msgEl.textContent = data.error || 'Failed to send invite.';
+      msgEl.className   = 'msg error';
+    } else {
+      msgEl.textContent = `Invite sent to ${email}! They'll receive an email to set their password.`;
+      msgEl.className   = 'msg success';
+      document.getElementById('inviteEmail').value = '';
+      document.getElementById('inviteName').value  = '';
+      await loadUsers();
+    }
+
+    btn.disabled    = false;
+    btn.textContent = 'Send Invite';
+  }
+
+  // ---- Edit Role ----
+  function openEditRoleModal(userId, userName, currentRole) {
+    editingUserId = userId;
+    document.getElementById('editRoleSubtitle').textContent = `Changing role for: ${userName}`;
+    document.getElementById('editRoleSelect').value = currentRole;
+    document.getElementById('editRoleModal').classList.add('show');
+  }
+
+  function closeEditRoleModal() {
+    document.getElementById('editRoleModal').classList.remove('show');
+  }
+
+  async function saveRole() {
+    const newRole = document.getElementById('editRoleSelect').value;
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ role: newRole })
+      .eq('id', editingUserId);
+
+    closeEditRoleModal();
+    if (error) { showToast('Error: ' + error.message); return; }
+    showToast('Role updated');
+    await loadUsers();
+  }
+
+  // ---- Toggle Active ----
+  async function toggleActive(userId, currentState, userName) {
+    // Confirmation before deactivating/activating (5.3)
+    const action    = currentState ? 'Deactivate' : 'Activate';
+    const name      = userName || userId;
+    const confirmed = confirm(`${action} ${name}? ${currentState ? 'They will lose access immediately.' : 'They will regain access.'}`);
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ is_active: !currentState })
+      .eq('id', userId);
+    if (error) { showToast('Error: ' + error.message); return; }
+    showToast(!currentState ? 'User activated' : 'User deactivated');
+    await loadUsers();
+  }
+
+  // ---- Toast ----
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  document.getElementById('inviteModal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeInviteModal();
+  });
+  document.getElementById('editRoleModal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeEditRoleModal();
+  });
+
+  init();
+</script>
+
+</body>
+</html>

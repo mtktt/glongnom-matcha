@@ -1,0 +1,2398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Glongnom Admin — Inventory</title>
+  <link rel="stylesheet" href="/css/design-system.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+    }
+
+    /* ---- TOPBAR ---- */
+    .topbar {
+      background: var(--surface-warm);
+      border-bottom: 1.5px solid var(--border);
+      box-shadow: var(--shadow-xs);
+      height: 52px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1100;
+      gap: 12px;
+    }
+    .topbar-hamburger {
+      background: none; border: none; font-size: 20px; cursor: pointer;
+      color: var(--brown-dark); padding: 4px 6px; flex-shrink: 0; line-height: 1;
+    }
+    .topbar-hamburger:hover { color: var(--brown-mid); }
+    .topbar-brand {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      font-weight: 700; font-size: var(--text-base); color: var(--brown-dark);
+      white-space: nowrap;
+    }
+    .topbar-page-label { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }
+    .topbar-spacer { flex: 1; }
+
+    /* ---- SIDEBAR ---- */
+    .sidebar-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(61,28,2,0.35); z-index: 1150;
+    }
+    .sidebar-backdrop.show { display: block; }
+    #sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; width: 260px;
+      background: var(--surface-warm);
+      border-right: 1.5px solid var(--border);
+      box-shadow: var(--shadow-lg);
+      z-index: 1200;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      display: flex; flex-direction: column;
+    }
+    #sidebar.open { transform: translateX(0); }
+    .sidebar-header {
+      height: 60px; display: flex; align-items: center;
+      padding: 0 20px; border-bottom: 2px solid var(--pink-accent);
+      flex-shrink: 0;
+    }
+    .sidebar-header .sb-brand {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      font-weight: 800; font-size: 16px; color: var(--brown-dark); flex: 1;
+    }
+    .sidebar-close {
+      background: none; border: none; font-size: 22px; cursor: pointer;
+      color: var(--text-muted); line-height: 1; padding: 4px;
+    }
+    .sidebar-close:hover { color: var(--brown-dark); }
+    .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; }
+    .sidebar-nav a {
+      display: block; text-decoration: none;
+      padding: 12px 20px; font-size: 14px; font-weight: 600;
+      font-family: 'Sarabun', system-ui, sans-serif;
+      color: var(--text-secondary);
+      border-left: 3px solid transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+    .sidebar-nav a:hover { background: var(--surface); color: var(--brown-mid); }
+    .sidebar-nav a.active {
+      background: var(--pink-soft); color: var(--brown-dark);
+      border-left-color: var(--pink-deep);
+    }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+    .sidebar-footer {
+      margin-top: auto; padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .sidebar-user-info { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .sidebar-signout {
+      width: 100%; padding: 9px 14px; border-radius: var(--radius-pill);
+      border: 1.5px solid var(--border); background: none;
+      font-size: 13px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif;
+      color: var(--text-secondary); cursor: pointer; transition: background 0.2s, color 0.2s;
+    }
+    .sidebar-signout:hover { background: var(--error-light); color: var(--error); border-color: var(--error); }
+
+    /* ---- LAYOUT ---- */
+    body { padding-top: 52px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+    .page-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 24px;
+      flex-wrap: wrap; gap: var(--space-3);
+    }
+    .page-header h1 { font-size: var(--text-2xl); font-weight: 700; color: var(--text-primary); }
+
+    /* ---- BUTTONS ---- */
+    .btn {
+      padding: 9px 18px; border-radius: var(--radius-pill); border: none;
+      font-size: var(--text-base); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-primary       { background: var(--brown-dark); color: #fff; }
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-ghost         { background: var(--surface-warm); color: var(--text-secondary); border: 1.5px solid var(--border); }
+    .btn-ghost:hover   { background: var(--pink-soft); }
+    .btn-danger        { background: var(--error-light); color: var(--error); border: 1.5px solid rgba(192,57,43,0.3); }
+    .btn-danger:hover  { background: #ffd5d5; }
+    .btn-sm { padding: 5px 12px; font-size: 13px; }
+
+    /* ---- TABS ---- */
+    .tabs {
+      display: flex; gap: 4px; margin-bottom: 24px;
+      background: var(--surface-warm);
+      border-radius: var(--radius-sm); padding: 4px;
+      border: 1.5px solid var(--border); width: fit-content;
+    }
+    .tab {
+      padding: 7px 18px; border-radius: 7px; border: none; background: none;
+      font-size: var(--text-base); font-weight: 500; color: var(--text-muted);
+      font-family: 'Sarabun', system-ui, sans-serif; cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .tab.active { background: var(--brown-dark); color: #fff; }
+
+    /* ---- SUMMARY BAR ---- */
+    .summary-bar {
+      display: flex; gap: var(--space-3); margin-bottom: var(--space-5);
+      flex-wrap: wrap;
+    }
+    .summary-chip {
+      display: flex; align-items: center; gap: 7px;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-pill); padding: 6px 14px;
+      font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary);
+      box-shadow: var(--shadow-xs);
+    }
+    .summary-chip .chip-count {
+      font-size: var(--text-base); font-weight: 700; color: var(--text-primary);
+    }
+    .summary-chip .chip-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #f59e0b; color: #fff;
+      border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 700;
+      padding: 2px 7px; min-width: 22px;
+    }
+    .summary-chip .chip-badge.red { background: var(--error); }
+
+    /* ---- TABLE ---- */
+    .table-wrap {
+      background: var(--surface); border-radius: var(--radius-md);
+      border: 1.5px solid var(--border); overflow-x: auto;
+      box-shadow: var(--shadow-sm);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      background: var(--surface-warm); padding: var(--space-3) var(--space-4); text-align: left;
+      font-size: var(--text-xs); font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1.5px solid var(--border);
+      white-space: nowrap;
+    }
+    thead th:last-child { text-align: right; }
+    tbody td {
+      padding: 14px var(--space-4); font-size: var(--text-base);
+      border-bottom: 1px solid var(--border); vertical-align: middle;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--pink-soft); }
+
+    /* ---- STOCK STATUS INDICATOR ---- */
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      border-radius: var(--radius-pill); padding: 3px 10px;
+      font-size: var(--text-xs); font-weight: 600;
+    }
+    .status-dot {
+      display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%; flex-shrink: 0;
+    }
+    .status-ok   { background: #f0fdf4; color: #16a34a; }
+    .status-ok   .status-dot { background: #22c55e; }
+    .status-low  { background: #fffbeb; color: #92400e; }
+    .status-low  .status-dot { background: #f59e0b; }
+    .status-out  { background: var(--error-light); color: var(--error); }
+    .status-out  .status-dot { background: var(--error); }
+
+    /* ---- ACTION OVERFLOW DROPDOWN ---- */
+    .actions-cell { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+    .action-menu-wrap { position: relative; display: inline-block; }
+    .action-dropdown {
+      display: none; position: fixed;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+      min-width: 156px; z-index: 500; overflow: hidden;
+    }
+    .action-dropdown.open { display: block; }
+    .action-dropdown button {
+      display: block; width: 100%; text-align: left; padding: 10px 14px;
+      border: none; background: none; font-size: var(--text-sm); cursor: pointer;
+      color: var(--text-primary); font-family: 'Sarabun', system-ui, sans-serif;
+    }
+    .action-dropdown button:hover { background: var(--surface-warm); }
+    .action-dropdown button.danger { color: var(--error); }
+    .action-dropdown .divider { height: 1px; background: var(--border); margin: 4px 0; }
+    .action-menu-btn {
+      background: var(--surface-warm); border: 1.5px solid var(--border);
+      border-radius: var(--radius-pill); font-size: 13px; letter-spacing: 2px;
+      padding: 4px 10px; cursor: pointer; font-family: inherit; color: var(--text-muted);
+      transition: background 0.15s;
+    }
+    .action-menu-btn:hover { background: var(--pink-soft); color: var(--brown-dark); }
+
+    /* ---- RECIPE / BOM SECTION ---- */
+    .bom-layout {
+      display: grid; grid-template-columns: 1fr 280px; gap: var(--space-6);
+      align-items: start;
+    }
+    @media (max-width: 700px) {
+      .bom-layout { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--surface-warm); border-radius: var(--radius-lg);
+      border: 1.5px solid var(--border); padding: var(--space-6);
+      box-shadow: var(--shadow-sm);
+    }
+    .card-title {
+      font-size: var(--text-lg); font-weight: 700; color: var(--text-primary);
+      margin-bottom: var(--space-4);
+    }
+    .bom-selector-row {
+      display: flex; gap: var(--space-3); align-items: center;
+      margin-bottom: var(--space-5);
+    }
+    .bom-selector-row select {
+      flex: 1; padding: 9px 12px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-size: var(--text-base); font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--surface); color: var(--text-primary); outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .bom-selector-row select:focus {
+      border-color: var(--pink-deep);
+      box-shadow: 0 0 0 3px rgba(255,133,161,0.18);
+    }
+    .bom-empty {
+      text-align: center; padding: 40px 20px;
+      color: var(--text-muted); font-size: var(--text-sm);
+    }
+    .bom-ingredient-list { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-4); }
+    .bom-ingredient-row {
+      display: flex; align-items: center; gap: var(--space-3);
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px var(--space-4);
+    }
+    .bom-ingredient-name { flex: 1; font-size: var(--text-base); font-weight: 600; color: var(--text-primary); }
+    .bom-ingredient-qty  { font-size: var(--text-sm); color: var(--text-secondary); white-space: nowrap; }
+    .bom-remove-btn {
+      background: none; border: none; cursor: pointer; color: var(--text-muted);
+      font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 50%;
+      transition: background 0.15s, color 0.15s; flex-shrink: 0;
+    }
+    .bom-remove-btn:hover { background: var(--error-light); color: var(--error); }
+
+    /* Cost summary card */
+    .cost-card {
+      background: var(--surface-warm); border-radius: var(--radius-lg);
+      border: 1.5px solid var(--border); padding: var(--space-5);
+      box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: var(--space-3);
+    }
+    .cost-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: var(--text-sm); color: var(--text-secondary);
+    }
+    .cost-row .cost-value { font-weight: 700; color: var(--text-primary); font-size: var(--text-base); }
+    .cost-row.highlight .cost-value { color: var(--pink-deep); font-size: var(--text-lg); }
+    .cost-divider { height: 1px; background: var(--border); margin: 2px 0; }
+
+    /* ---- MODALS ---- */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(61,28,2,0.25); z-index: 2000;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; visibility: hidden;
+      transition: opacity 0.22s ease, visibility 0.22s;
+      padding: var(--space-4);
+    }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; visibility: visible; }
+    .modal {
+      background: var(--surface-warm); border-radius: var(--radius-lg); padding: var(--space-8);
+      width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto;
+      border: 1.5px solid var(--border); box-shadow: var(--shadow-lg);
+      transform: scale(0.96) translateY(8px);
+      transition: transform 0.22s ease, opacity 0.22s ease;
+      opacity: 0;
+    }
+    .modal-overlay.show .modal { transform: scale(1) translateY(0); opacity: 1; }
+    .modal h2 { font-size: var(--text-xl); font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .modal .subtitle { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: var(--space-6); }
+    .form-group { margin-bottom: var(--space-4); }
+    .form-group label {
+      display: block; font-size: var(--text-sm); font-weight: 600;
+      color: var(--text-secondary); margin-bottom: 6px;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%; padding: 10px 12px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-size: var(--text-base); font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--surface); color: var(--text-primary); outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: var(--pink-deep);
+      box-shadow: 0 0 0 3px rgba(255,133,161,0.18);
+    }
+    .form-group input[readonly] {
+      background: var(--surface-warm); color: var(--text-muted); cursor: default;
+    }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-row { display: flex; gap: var(--space-3); }
+    .form-row .form-group { flex: 1; }
+    .radio-group { display: flex; gap: var(--space-4); margin-top: 6px; }
+    .radio-group label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: var(--text-base); font-weight: 500; color: var(--text-primary);
+      cursor: pointer; margin-bottom: 0;
+    }
+    .radio-group input[type="radio"] {
+      width: auto; padding: 0; border: none; accent-color: var(--brown-dark);
+    }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: var(--space-6); }
+    .modal .msg {
+      border-radius: var(--radius-sm); padding: 10px 14px;
+      font-size: var(--text-sm); margin-bottom: var(--space-4); display: none;
+    }
+    .modal .msg.error   { background: #fff0f0; border: 1px solid #ffc0c0; color: var(--error); display: block; }
+    .modal .msg.success { background: #f0fff4; border: 1px solid #9ae6b4; color: #276749; display: block; }
+
+    /* ---- TOAST ---- */
+    .toast {
+      position: fixed;
+      bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+      right: var(--space-6);
+      background: var(--brown-dark); color: #fff;
+      padding: var(--space-3) var(--space-5);
+      border-radius: var(--radius-pill);
+      font-size: var(--text-base); z-index: 9999;
+      opacity: 0; transform: translateY(12px);
+      transition: all 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { background: var(--error); }
+
+    /* ---- EMPTY STATE ---- */
+    .empty-state {
+      text-align: center; padding: 60px 20px;
+      color: var(--text-muted); font-size: var(--text-sm);
+    }
+    .empty-state span { font-size: 32px; display: block; margin-bottom: var(--space-3); }
+
+    /* ---- TAB PANEL VISIBILITY ---- */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ---- OPTION OVERRIDES MODAL ---- */
+    .overrides-modal { max-width: 700px; }
+
+    .ov-group {
+      margin-bottom: var(--space-6);
+      border: 1.5px solid var(--border); border-radius: var(--radius-md); overflow: hidden;
+    }
+    .ov-group-header {
+      background: var(--surface-warm); padding: 10px 16px;
+      border-bottom: 1.5px solid var(--border);
+      font-size: var(--text-sm); font-weight: 700; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: 0.4px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .ov-choice {
+      border-bottom: 1px solid var(--border); padding: 12px 16px;
+      background: var(--surface);
+    }
+    .ov-choice:last-child { border-bottom: none; }
+    .ov-choice-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 6px; gap: 8px;
+    }
+    .ov-choice-name {
+      font-size: var(--text-base); font-weight: 600; color: var(--text-primary); flex: 1;
+    }
+    .ov-choice-name span { font-weight: 400; color: var(--text-muted); margin-left: 4px; }
+    .ov-rules { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+    .ov-rule-row {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface-warm); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); padding: 8px 12px; font-size: var(--text-sm);
+    }
+    .ov-rule-badge {
+      display: inline-block; border-radius: var(--radius-pill); padding: 2px 8px;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
+    }
+    .ov-rule-badge.replace { background: #ede9fe; color: #6d28d9; }
+    .ov-rule-badge.add     { background: #dcfce7; color: #15803d; }
+    .ov-rule-badge.remove  { background: #fee2e2; color: #b91c1c; }
+    .ov-rule-desc { flex: 1; color: var(--text-secondary); line-height: 1.4; }
+    .ov-rule-del {
+      background: none; border: none; cursor: pointer; color: var(--text-muted);
+      font-size: 16px; padding: 2px 4px; border-radius: 4px;
+      transition: color 0.15s, background 0.15s; flex-shrink: 0; line-height: 1;
+    }
+    .ov-rule-del:hover { color: var(--error); background: var(--error-light); }
+
+    /* Inline add-rule form */
+    .ov-add-form {
+      background: var(--surface-warm); border: 1.5px solid var(--pink-deep);
+      border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 6px;
+    }
+    .ov-add-form .form-row { gap: var(--space-2); }
+    .ov-add-form .form-group { margin-bottom: var(--space-3); }
+    .ov-add-form .form-group label { font-size: 12px; }
+    .ov-add-form select,
+    .ov-add-form input {
+      padding: 7px 10px; font-size: var(--text-sm);
+    }
+    .ov-form-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
+
+    .ov-empty {
+      padding: 32px 16px; text-align: center;
+      color: var(--text-muted); font-size: var(--text-sm);
+    }
+    .ov-loading { padding: 20px; text-align: center; color: var(--text-muted); }
+
+    /* ---- UNIT HINT IN BOM MODAL ---- */
+    .unit-hint {
+      font-size: var(--text-xs); color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ---- COMPOUND INGREDIENT ---- */
+    .compound-toggle-label {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      padding: 10px 12px; border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); background: var(--surface);
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .compound-toggle-label:hover { background: var(--pink-soft); border-color: var(--pink-deep); }
+    .compound-toggle-label input[type="checkbox"] { width: auto; padding: 0; border: none; accent-color: var(--brown-dark); }
+    .compound-section {
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      padding: 14px; background: var(--surface-warm); margin-bottom: var(--space-4);
+    }
+    .compound-section-title {
+      font-size: var(--text-xs); font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 12px;
+    }
+    .compound-parts-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 10px; }
+    .compound-parts-table th {
+      background: var(--surface); padding: 6px 8px; text-align: left;
+      font-size: 11px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1.5px solid var(--border);
+    }
+    .compound-parts-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .compound-parts-table tr:last-child td { border-bottom: none; }
+    .compound-cost-summary {
+      display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;
+      padding: 10px 12px; background: var(--surface); border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+    }
+    .compound-cost-chip {
+      display: flex; flex-direction: column; gap: 2px;
+      font-size: var(--text-xs); color: var(--text-muted);
+    }
+    .compound-cost-chip strong { font-size: var(--text-sm); color: var(--text-primary); font-weight: 700; }
+
+    /* PHONE (~375-430px) */
+    @media (max-width: 640px) {
+      .container { padding: var(--space-4) var(--space-3); }
+      .page-header h1 { font-size: var(--text-xl); }
+      .tabs { width: 100%; }
+      .tab { flex: 1; text-align: center; padding: 7px 8px; font-size: 13px; }
+      .summary-bar { gap: var(--space-2); }
+      .summary-chip { font-size: 12px; padding: 5px 10px; }
+      /* Ingredients table — keep Name / Stock / Status / Actions, hide Unit / Reorder point / Cost-per-unit */
+      .table-wrap table th:nth-child(2), .table-wrap table td:nth-child(2),
+      .table-wrap table th:nth-child(4), .table-wrap table td:nth-child(4),
+      .table-wrap table th:nth-child(5), .table-wrap table td:nth-child(5) { display: none; }
+      .table-wrap thead th, .table-wrap tbody td { padding: 10px 8px; font-size: 13px; }
+      .modal { padding: var(--space-5); }
+      .modal h2 { font-size: var(--text-lg); }
+      .form-row { flex-direction: column; gap: 0; }
+      .bom-selector-row { flex-wrap: wrap; }
+      .bom-selector-row select { flex: 1 1 100%; }
+      .bom-ingredient-row { flex-wrap: wrap; }
+      .bom-ingredient-name { flex: 1 1 100%; }
+      .ov-rule-row { flex-wrap: wrap; }
+      .ov-rule-desc { flex: 1 1 100%; }
+      .compound-parts-table { font-size: 12px; }
+      .compound-parts-table th, .compound-parts-table td { padding: 6px 5px; }
+      .overrides-modal { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <button class="topbar-hamburger" onclick="openSidebar()" aria-label="เปิดเมนู">&#9776;</button>
+  <span class="topbar-brand">Glongnom POS</span>
+  <span class="topbar-page-label">/ คลังวัตถุดิบ</span>
+  <div class="topbar-spacer"></div>
+</div>
+
+<!-- Sidebar Backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<!-- Sidebar Drawer -->
+<aside id="sidebar" role="navigation" aria-label="Admin navigation">
+  <div class="sidebar-header">
+    <span class="sb-brand">Glongnom POS</span>
+    <button class="sidebar-close" onclick="closeSidebar()" aria-label="ปิดเมนู">&times;</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-group-label">Management</div>
+    <a href="/admin/orders.html">&#129534; Order Queue</a>
+    <a href="/admin/">&#128203; Menu Management</a>
+    <a href="/admin/options.html">&#9881;&#65039; Options</a>
+    <a href="/admin/customers.html">&#127919; Customers</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Inventory</div>
+    <a href="/admin/inventory.html" class="active">&#128230; Inventory</a>
+    <a href="/admin/suppliers.html">&#128666; Suppliers</a>
+    <a href="/admin/purchase-orders.html">&#128722; Purchases</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Analysis</div>
+    <a href="/admin/dashboard.html">&#128202; Dashboard</a>
+    <a href="/admin/reports.html">&#128202; Reports</a>
+    <a href="/admin/accounting.html">&#128210; Accounting</a>
+    <a href="/admin/finance.html">&#128200; Finance</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Setting</div>
+    <a href="/admin/users.html">&#128101; Staff</a>
+    <a href="/admin/printer.html">&#128424;&#65039; Printers</a>
+  </nav>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user-info" id="sidebarUserInfo">Loading…</div>
+    <button class="sidebar-signout" onclick="Auth.signOut()">Sign Out</button>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════════════════════ MAIN CONTENT -->
+<div class="container">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <h1>คลังวัตถุดิบ</h1>
+    <!-- Add button is shown only when the Ingredients tab is active, controlled by JS -->
+    <button class="btn btn-primary" id="pageActionBtn" onclick="openIngredientModal(null)">
+      + เพิ่มวัตถุดิบ
+    </button>
+  </div>
+
+  <!-- Error Banner -->
+  <div class="error-banner" id="loadErrorBanner">
+    <span class="error-banner-msg">โหลดข้อมูลไม่สำเร็จ — กรุณาตรวจสอบการเชื่อมต่อ</span>
+    <button class="error-banner-retry" onclick="loadIngredients()">ลองใหม่</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs" role="tablist">
+    <button class="tab active" role="tab" aria-selected="true"  onclick="switchTab('ingredients')">วัตถุดิบ</button>
+    <button class="tab"        role="tab" aria-selected="false" onclick="switchTab('recipes')">สูตรอาหาร / BOM</button>
+  </div>
+
+  <!-- ─────────────────────────────── TAB 1: INGREDIENTS -->
+  <div class="tab-panel active" id="panel-ingredients">
+
+    <!-- Summary Bar -->
+    <div class="summary-bar" id="summaryBar">
+      <div class="summary-chip">
+        <span>วัตถุดิบทั้งหมด</span>
+        <span class="chip-count" id="statTotal">—</span>
+      </div>
+      <div class="summary-chip" id="statLowChip">
+        <span>สต็อกต่ำ</span>
+        <span class="chip-badge" id="statLow">0</span>
+      </div>
+      <div class="summary-chip" id="statOutChip">
+        <span>หมดสต็อก</span>
+        <span class="chip-badge red" id="statOut">0</span>
+      </div>
+    </div>
+
+    <!-- Ingredients Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>วัตถุดิบ</th>
+            <th>หน่วย</th>
+            <th>สต็อกปัจจุบัน</th>
+            <th>จุดสั่งซื้อ</th>
+            <th>ต้นทุน/หน่วย</th>
+            <th>สถานะ</th>
+            <th style="text-align:right;">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="ingredientsTableBody">
+          <!-- Skeleton loading rows -->
+          <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div><!-- /panel-ingredients -->
+
+  <!-- ─────────────────────────────── TAB 2: RECIPES / BOM -->
+  <div class="tab-panel" id="panel-recipes">
+
+    <!-- Menu item selector -->
+    <div class="bom-selector-row">
+      <select id="bomMenuSelect" onchange="onMenuSelected(this.value)">
+        <option value="">— เลือกเมนูเพื่อดูสูตร —</option>
+        <!-- Populated by loadMenusForBOM() when the BOM tab is first opened -->
+      </select>
+      <button class="btn btn-primary btn-sm" id="bomAddIngBtn"
+              onclick="openAddToBOMModal()" disabled>
+        + เพิ่มวัตถุดิบ
+      </button>
+      <button class="btn btn-ghost btn-sm" id="bomOverrideBtn"
+              onclick="openOptionOverridesModal()" disabled style="display:none;">
+        &#9881; Option Overrides
+      </button>
+    </div>
+
+    <div class="bom-layout">
+
+      <!-- Left: ingredient rows -->
+      <div>
+        <div class="card">
+          <div class="card-title" id="bomCardTitle">ส่วนผสม</div>
+
+          <!-- Skeleton while loading -->
+          <div id="bomSkeleton">
+            <div class="skeleton skeleton-line medium"></div>
+            <div class="skeleton skeleton-line short" style="margin-top:8px;"></div>
+            <div class="skeleton skeleton-line medium" style="margin-top:8px;"></div>
+          </div>
+
+          <!-- Empty prompt before a menu is chosen -->
+          <div class="bom-empty" id="bomEmptyPrompt">
+            <span>&#128230;</span>
+            เลือกเมนูด้านบนเพื่อดูและแก้ไขส่วนผสม
+          </div>
+
+          <!-- Ingredient list (populated by JS) -->
+          <div class="bom-ingredient-list" id="bomIngredientList" style="display:none;"></div>
+
+          <button class="btn btn-ghost btn-sm" id="bomAddRowBtn"
+                  onclick="openAddToBOMModal()" style="display:none;">
+            + เพิ่มส่วนผสม
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: cost summary -->
+      <div>
+        <div class="cost-card" id="costCard">
+          <div class="card-title" style="margin-bottom:0;">ต้นทุนสูตร</div>
+          <div class="cost-divider"></div>
+          <div class="cost-row">
+            <span>ต้นทุนวัตถุดิบ</span>
+            <span class="cost-value" id="costRecipe">฿—</span>
+          </div>
+          <div class="cost-row">
+            <span>ราคาขาย</span>
+            <span class="cost-value" id="costSelling">฿—</span>
+          </div>
+          <div class="cost-divider"></div>
+          <div class="cost-row highlight">
+            <span>Food Cost %</span>
+            <span class="cost-value" id="costPct">—</span>
+          </div>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+            Food Cost = ต้นทุนวัตถุดิบ ÷ ราคาขาย × 100
+          </p>
+        </div>
+      </div>
+
+    </div><!-- /bom-layout -->
+  </div><!-- /panel-recipes -->
+
+</div><!-- /container -->
+
+
+<!-- ══════════════════════════════════════════════ MODALS -->
+
+<!-- 1. Add / Edit Ingredient Modal -->
+<div class="modal-overlay" id="ingredientModal" onclick="handleOverlayClick(event, 'ingredientModal')">
+  <div class="modal" style="max-width:520px;">
+    <h2 id="ingredientModalTitle">เพิ่มวัตถุดิบ</h2>
+    <p class="subtitle">กรอกโดยใช้หน่วยซื้อ — ระบบจะคำนวณต้นทุนและแปลงสต็อกเป็นหน่วยย่อยอัตโนมัติ</p>
+    <div class="msg" id="ingredientModalMsg"></div>
+    <input type="hidden" id="ingredientId" />
+
+    <!-- 1. Name -->
+    <div class="form-group">
+      <label for="ingredientName">1. ชื่อวัตถุดิบ</label>
+      <input type="text" id="ingredientName" placeholder="เช่น มัทฉะ, นมสด, ขวดพลาสติก" />
+    </div>
+
+    <!-- 2. Type -->
+    <div class="form-group">
+      <label>2. ประเภท</label>
+      <div class="radio-group">
+        <label><input type="radio" name="ingType" value="ingredient" checked /> วัตถุดิบ</label>
+        <label><input type="radio" name="ingType" value="packaging" /> บรรจุภัณฑ์</label>
+      </div>
+    </div>
+
+    <!-- Compound toggle -->
+    <div class="form-group">
+      <label class="compound-toggle-label">
+        <input type="checkbox" id="ingIsCompound" onchange="toggleCompoundMode()" />
+        <span style="font-weight:600;">วัตถุดิบผสม</span>
+        <span style="color:var(--text-muted);font-weight:400;font-size:var(--text-sm);">ประกอบจากวัตถุดิบหลายชนิด</span>
+      </label>
+    </div>
+
+    <!-- 3 + 4. Big unit & THB/big unit -->
+    <div class="form-row">
+      <div class="form-group">
+        <label for="ingBigUnit">3. หน่วย (Big Unit)</label>
+        <select id="ingBigUnit" onchange="onBigUnitChange()">
+          <option value="kg">kg (กิโลกรัม)</option>
+          <option value="L">L (ลิตร)</option>
+          <option value="ขวด">ขวด</option>
+          <option value="กล่อง">กล่อง</option>
+          <option value="กระปุก">กระปุก</option>
+          <option value="ถุง">ถุง</option>
+          <option value="แพค">แพค</option>
+          <option value="แกลลอน">แกลลอน</option>
+        </select>
+      </div>
+      <div class="form-group" id="costBigGroup">
+        <label for="ingCostBig">4. ราคา / หน่วยซื้อ (฿)</label>
+        <input type="number" id="ingCostBig" placeholder="0.00" min="0" step="0.01" oninput="recalcIngModal()" />
+      </div>
+    </div>
+
+    <!-- 5. Conversion: N small units per 1 big unit -->
+    <div class="form-group">
+      <label>5. การแปลงหน่วย — 1 <strong id="ingBigUnitLabel">kg</strong> เท่ากับ</label>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;">
+        <input type="number" id="ingUnitsPerBig"
+               style="width:100px;padding:9px 11px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-base);font-family:inherit;background:var(--surface);color:var(--text-primary);outline:none;"
+               placeholder="1000" min="0.001" step="any" oninput="recalcIngModal()" />
+        <select id="ingSmallUnit" onchange="recalcIngModal()"
+                style="padding:9px 11px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-base);font-family:inherit;background:var(--surface);color:var(--text-primary);outline:none;">
+          <option value="g">g (กรัม)</option>
+          <option value="ml">ml (มิลลิลิตร)</option>
+          <option value="pcs">pcs (ชิ้น)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- COMPOUND SECTION (hidden until checkbox is ticked) -->
+    <div class="compound-section" id="compoundSection" style="display:none;">
+      <div class="compound-section-title">สูตรวัตถุดิบผสม</div>
+
+      <!-- Batch yield -->
+      <div class="form-group">
+        <label>ปริมาณที่ได้ต่อสูตร (<span class="ing-big-lbl">หน่วย</span>)</label>
+        <input type="number" id="ingBatchYieldBig" placeholder="1" min="0.001" step="any"
+               oninput="recalcCompoundCost()"
+               style="width:120px;padding:9px 11px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-base);font-family:inherit;background:var(--surface);color:var(--text-primary);outline:none;" />
+        <p class="unit-hint" id="ingBatchYieldHint"></p>
+      </div>
+
+      <!-- Parts list -->
+      <div id="compoundPartsList" style="margin-bottom:10px;"></div>
+
+      <!-- Add-part row -->
+      <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;">
+        <div style="flex:1;min-width:140px;">
+          <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;text-transform:uppercase;">วัตถุดิบ</label>
+          <select id="compoundPartSelect" onchange="onCompoundPartChange()"
+                  style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);font-family:inherit;background:var(--surface);color:var(--text-primary);outline:none;">
+            <option value="">— เลือก —</option>
+          </select>
+        </div>
+        <div style="width:90px;">
+          <label style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;text-transform:uppercase;">ปริมาณ</label>
+          <input type="number" id="compoundPartQty" placeholder="0" min="0.001" step="any"
+                 style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);font-family:inherit;background:var(--surface);color:var(--text-primary);outline:none;" />
+        </div>
+        <div style="width:40px;align-self:flex-end;padding-bottom:10px;font-size:var(--text-sm);color:var(--text-muted);">
+          <span id="compoundPartUnitLabel"></span>
+        </div>
+        <div style="align-self:flex-end;">
+          <button class="btn btn-ghost btn-sm" type="button" onclick="addCompoundPart()">+ เพิ่ม</button>
+        </div>
+      </div>
+
+      <!-- Cost summary -->
+      <div class="compound-cost-summary" id="compoundCostSummary" style="margin-top:10px;">
+        <div class="compound-cost-chip">
+          <span>ต้นทุนรวม/สูตร</span>
+          <strong id="compoundTotalCost">฿—</strong>
+        </div>
+        <div style="width:1px;background:var(--border);align-self:stretch;"></div>
+        <div class="compound-cost-chip">
+          <span>ต้นทุน / <span class="ing-big-lbl">หน่วย</span></span>
+          <strong id="compoundCostPerBig">฿—</strong>
+        </div>
+        <div style="width:1px;background:var(--border);align-self:stretch;"></div>
+        <div class="compound-cost-chip">
+          <span>ต้นทุน / หน่วยย่อย</span>
+          <strong id="compoundCostPerSmall">฿—</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Auto-calculated cost per small unit -->
+    <div class="form-group">
+      <label>6. ต้นทุน / หน่วยย่อย <span style="font-weight:400;color:var(--text-muted);">(คำนวณอัตโนมัติ)</span></label>
+      <input type="text" id="ingCostSmallDisplay" readonly
+             style="background:var(--surface-warm);color:var(--text-muted);cursor:default;"
+             placeholder="— กรอกข้อมูลด้านบนก่อน" />
+    </div>
+
+    <!-- 7 + 8. Current stock & reorder in big units -->
+    <div class="form-row">
+      <div class="form-group">
+        <label for="ingStockBig">7. สต็อกปัจจุบัน (<span class="ing-big-lbl">หน่วยซื้อ</span>)</label>
+        <input type="number" id="ingStockBig" placeholder="0" min="0" step="any" oninput="recalcIngModal()" />
+        <p class="unit-hint" id="ingStockHint"></p>
+      </div>
+      <div class="form-group">
+        <label for="ingReorderBig">8. จุดสั่งซื้อ (<span class="ing-big-lbl">หน่วยซื้อ</span>)</label>
+        <input type="number" id="ingReorderBig" placeholder="0" min="0" step="any" oninput="recalcIngModal()" />
+        <p class="unit-hint" id="ingReorderHint"></p>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('ingredientModal')">ยกเลิก</button>
+      <button class="btn btn-primary" id="ingredientSaveBtn" onclick="saveIngredient()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- 2. Adjust Stock Modal -->
+<div class="modal-overlay" id="adjustStockModal" onclick="handleOverlayClick(event, 'adjustStockModal')">
+  <div class="modal">
+    <h2>ปรับสต็อก</h2>
+    <p class="subtitle" id="adjustSubtitle">ปรับปริมาณสต็อกของวัตถุดิบที่เลือก</p>
+
+    <input type="hidden" id="adjustIngredientId" />
+
+    <div class="form-group">
+      <label>วัตถุดิบ</label>
+      <input type="text" id="adjustIngredientName" readonly />
+    </div>
+
+    <div class="form-group">
+      <label>ประเภทการปรับ</label>
+      <div class="radio-group">
+        <label>
+          <input type="radio" name="adjustType" id="adjustTypeAdd" value="add" checked />
+          เพิ่มสต็อก
+        </label>
+        <label>
+          <input type="radio" name="adjustType" id="adjustTypeReduce" value="reduce" />
+          ลดสต็อก
+        </label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="adjustQty">จำนวน (<span id="adjustQtyUnit">หน่วย</span>)</label>
+      <input type="number" id="adjustQty" placeholder="0" min="0.001" step="any" />
+      <p class="unit-hint" id="adjustQtyHint"></p>
+    </div>
+
+    <div class="form-group">
+      <label for="adjustReason">เหตุผล</label>
+      <select id="adjustReason">
+        <option value="purchase">ซื้อเพิ่ม (Purchase)</option>
+        <option value="manual_count">นับสต็อกจริง (Manual Count)</option>
+        <option value="spillage">หกหรือตก (Spillage)</option>
+        <option value="expired">หมดอายุ (Expired)</option>
+        <option value="other">อื่น ๆ (Other)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="adjustNotes">หมายเหตุ (ไม่บังคับ)</label>
+      <textarea id="adjustNotes" placeholder="บันทึกเพิ่มเติม…"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('adjustStockModal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="confirmAdjustStock()">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Log Wastage Modal -->
+<div class="modal-overlay" id="wastageModal" onclick="handleOverlayClick(event, 'wastageModal')">
+  <div class="modal">
+    <h2>บันทึกของเสีย</h2>
+    <p class="subtitle">บันทึกปริมาณวัตถุดิบที่สูญเสียหรือทิ้ง</p>
+
+    <input type="hidden" id="wastageIngredientId" />
+
+    <div class="form-group">
+      <label>วัตถุดิบ</label>
+      <input type="text" id="wastageIngredientName" readonly />
+    </div>
+
+    <div class="form-group">
+      <label for="wastageQty">จำนวนที่เสีย (<span id="wastageQtyUnit">หน่วย</span>)</label>
+      <input type="number" id="wastageQty" placeholder="0" min="0.001" step="any" />
+    </div>
+
+    <div class="form-group">
+      <label for="wastageNotes">หมายเหตุ (ไม่บังคับ)</label>
+      <textarea id="wastageNotes" placeholder="เช่น หกระหว่างเตรียม, วันหมดอายุ…"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('wastageModal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="confirmLogWastage()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- 4. Add Ingredient to Recipe (BOM) Modal -->
+<div class="modal-overlay" id="bomModal" onclick="handleOverlayClick(event, 'bomModal')">
+  <div class="modal">
+    <h2>เพิ่มวัตถุดิบในสูตร</h2>
+    <p class="subtitle" id="bomModalSubtitle">เลือกวัตถุดิบและกำหนดปริมาณที่ใช้ต่อ 1 แก้ว</p>
+
+    <div class="form-group">
+      <label for="bomIngredientSelect">วัตถุดิบ</label>
+      <select id="bomIngredientSelect" onchange="onBOMIngredientSelected(this.value)">
+        <option value="">— เลือกวัตถุดิบ —</option>
+        <!-- Populated by populateBOMIngredientSelect() from the loaded ingredients array -->
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="bomQty">ปริมาณที่ใช้</label>
+      <input type="number" id="bomQty" placeholder="0" min="0.01" step="0.01" />
+      <p class="unit-hint" id="bomUnitHint"></p>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('bomModal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="confirmAddToBOM()">เพิ่ม</button>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Option Overrides Modal -->
+<div class="modal-overlay" id="overridesModal" onclick="handleOverlayClick(event, 'overridesModal')">
+  <div class="modal overrides-modal">
+    <h2>&#9881; Option Overrides</h2>
+    <p class="subtitle" id="overridesSubtitle">กำหนดการหักวัตถุดิบเมื่อลูกค้าเลือก option ต่างๆ</p>
+
+    <div id="overridesBody">
+      <!-- Rendered by renderOverridesModal() -->
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('overridesModal')">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+
+<!-- ══════════════════════════════════════════════ SCRIPTS -->
+<script>
+  // ─────────────────────────────────── AUTH & INIT
+  let currentUser    = null;
+  let ingredients    = [];   // full ingredient list
+  let currentMenuId  = null; // selected menu item in BOM tab
+  let currentBOM     = [];   // BOM entries for selected menu
+
+  async function init() {
+    const profile = await Auth.require(['admin', 'manager']);
+    if (!profile) return;
+    currentUser = profile;
+
+    const info = document.getElementById('sidebarUserInfo');
+    info.textContent = (profile.name || '') + (profile.email ? ' · ' + profile.email : '');
+
+    await loadIngredients();
+  }
+
+
+  // ─────────────────────────────────── SIDEBAR
+  function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sidebarBackdrop').classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarBackdrop').classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
+
+  // ─────────────────────────────────── TABS
+  let menusLoaded = false; // only fetch menu list once
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach((btn, i) => {
+      const name = ['ingredients', 'recipes'][i];
+      btn.classList.toggle('active', name === tab);
+      btn.setAttribute('aria-selected', name === tab ? 'true' : 'false');
+    });
+    document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+
+    // Show/hide the top-right action button depending on active tab
+    const actionBtn = document.getElementById('pageActionBtn');
+    if (tab === 'ingredients') {
+      actionBtn.textContent   = '+ เพิ่มวัตถุดิบ';
+      actionBtn.onclick       = () => openIngredientModal(null);
+      actionBtn.style.display = '';
+    } else {
+      actionBtn.style.display = 'none';
+      // Lazy-load menu list the first time the BOM tab is opened
+      if (!menusLoaded) loadMenusForBOM();
+    }
+  }
+
+  async function loadMenusForBOM() {
+    const { data, error } = await supabase
+      .from('menus')
+      .select('id, name, sort_order')
+      .eq('is_active', true)
+      .order('sort_order');
+
+    if (error) { showToast('โหลดรายการเมนูไม่สำเร็จ', true); return; }
+
+    const sel = document.getElementById('bomMenuSelect');
+    sel.innerHTML = '<option value="">— เลือกเมนูเพื่อดูสูตร —</option>' +
+      (data || []).map(m =>
+        `<option value="${m.id}">${escHtml(m.name)}</option>`
+      ).join('');
+
+    menusLoaded = true;
+  }
+
+
+  // ─────────────────────────────────── MODAL HELPERS
+  function openModal(id)  { document.getElementById(id).classList.add('show'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+  function handleOverlayClick(e, id) {
+    // Close when clicking the dark backdrop (not the modal card itself)
+    if (e.target === e.currentTarget) closeModal(id);
+  }
+
+
+  // ─────────────────────────────────── TOAST
+  function showToast(msg, isError = false) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.toggle('error', isError);
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+
+  // ─────────────────────────────────── OVERFLOW DROPDOWN
+  let openDropdownId = null;
+
+  function toggleDropdown(btn, id) {
+    const menu = document.getElementById(id);
+    const isOpen = menu.classList.contains('open');
+
+    // Close any previously open dropdown
+    closeAllDropdowns();
+
+    if (!isOpen) {
+      const rect = btn.getBoundingClientRect();
+      menu.style.top  = (rect.bottom + 4) + 'px';
+      menu.style.left = Math.max(8, rect.right - 160) + 'px';
+      menu.classList.add('open');
+      openDropdownId = id;
+    }
+  }
+
+  function closeAllDropdowns() {
+    document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
+    openDropdownId = null;
+  }
+
+  document.addEventListener('click', e => {
+    if (openDropdownId && !e.target.closest('.action-menu-wrap')) {
+      closeAllDropdowns();
+    }
+  });
+
+
+  // ─────────────────────────────────── STATUS HELPER
+  function getStatusPill(stock, reorderLevel) {
+    if (stock === 0) {
+      return '<span class="status-pill status-out"><span class="status-dot"></span>หมด</span>';
+    }
+    if (stock <= reorderLevel) {
+      return '<span class="status-pill status-low"><span class="status-dot"></span>ต่ำ</span>';
+    }
+    return '<span class="status-pill status-ok"><span class="status-dot"></span>ปกติ</span>';
+  }
+
+
+  // ─────────────────────────────────── DATA: INGREDIENTS
+  async function loadIngredients() {
+    // Show skeleton rows while loading
+    document.getElementById('ingredientsTableBody').innerHTML = `
+      <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+      <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+      <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>`;
+
+    const { data, error } = await supabase
+      .from('ingredients')
+      .select('id, name, unit, current_stock, reorder_level, cost_per_unit, ingredient_type, big_unit, units_per_big, cost_per_big, is_compound, batch_yield')
+      .eq('is_active', true)
+      .order('name');
+
+    if (error) {
+      document.getElementById('loadErrorBanner').classList.add('show');
+      showToast('โหลดข้อมูลไม่สำเร็จ', true);
+      return;
+    }
+
+    document.getElementById('loadErrorBanner').classList.remove('show');
+    ingredients = data || [];
+
+    renderIngredientsTable();
+    updateSummaryBar();
+    populateBOMIngredientSelect();
+  }
+
+  function renderIngredientsTable() {
+    const tbody = document.getElementById('ingredientsTableBody');
+
+    if (!ingredients.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="empty-state">
+            <span>&#128230;</span>
+            ยังไม่มีวัตถุดิบ — กด <strong>+ เพิ่มวัตถุดิบ</strong> เพื่อเริ่ม
+          </td>
+        </tr>`;
+      return;
+    }
+
+    tbody.innerHTML = ingredients.map((ing) => {
+      const upb      = parseFloat(ing.units_per_big) || 1;
+      const bigUnit  = ing.big_unit || ing.unit;
+      const stockBig   = upb > 0 ? ing.current_stock / upb : ing.current_stock;
+      const reorderBig = upb > 0 ? ing.reorder_level  / upb : ing.reorder_level;
+      // Use cost_per_big directly — never reverse-calculate from cost_per_unit
+      const costBig   = parseFloat(ing.cost_per_big) > 0
+        ? parseFloat(ing.cost_per_big)
+        : (upb > 0 ? ing.cost_per_unit * upb : ing.cost_per_unit);
+      // Derive small-unit cost from cost_per_big — so it's always consistent
+      const costSmall = costBig > 0 && upb > 0
+        ? costBig / upb
+        : parseFloat(ing.cost_per_unit);
+      const typeBadge  = ing.ingredient_type === 'packaging'
+        ? `<span style="font-size:10px;padding:2px 7px;background:#e0e7ff;color:#3730a3;border-radius:999px;margin-left:6px;font-weight:600;vertical-align:middle;">บรรจุ</span>`
+        : '';
+      const compBadge  = ing.is_compound
+        ? `<span style="font-size:10px;padding:2px 7px;background:#fef3c7;color:#92400e;border-radius:999px;margin-left:6px;font-weight:600;vertical-align:middle;">ผสม</span>`
+        : '';
+      const dropId = 'drop_' + ing.id;
+      return `
+        <tr>
+          <td style="font-weight:600;">${escHtml(ing.name)}${typeBadge}${compBadge}</td>
+          <td style="color:var(--text-muted);font-size:var(--text-sm);">
+            ${escHtml(bigUnit)} → ${escHtml(ing.unit)}
+          </td>
+          <td>
+            <span style="font-weight:700;font-size:var(--text-lg);">${fmtNum(stockBig)}</span>
+            <span style="font-size:var(--text-xs);color:var(--text-muted);margin-left:2px;">${escHtml(bigUnit)}</span>
+            <div style="font-size:11px;color:var(--text-muted);">${fmtNum(ing.current_stock)} ${escHtml(ing.unit)}</div>
+          </td>
+          <td>
+            <span style="color:var(--text-muted);">${fmtNum(reorderBig)} ${escHtml(bigUnit)}</span>
+            <div style="font-size:11px;color:var(--text-muted);">${fmtNum(ing.reorder_level)} ${escHtml(ing.unit)}</div>
+          </td>
+          <td>
+            ฿${fmtCost(costBig)}<span style="font-size:11px;color:var(--text-muted);">/${escHtml(bigUnit)}</span>
+            <div style="font-size:11px;color:var(--text-muted);">฿${fmtCost4(costSmall)}/${escHtml(ing.unit)}</div>
+          </td>
+          <td>${getStatusPill(ing.current_stock, ing.reorder_level)}</td>
+          <td>
+            <div class="actions-cell">
+              <button class="btn btn-ghost btn-sm" onclick="openIngredientModal('${ing.id}')">แก้ไข</button>
+              <div class="action-menu-wrap">
+                <button class="action-menu-btn btn-sm" onclick="toggleDropdown(this, '${dropId}')" aria-label="เพิ่มเติม">•••</button>
+                <div class="action-dropdown" id="${dropId}">
+                  <button onclick="openAdjustModal('${ing.id}'); closeAllDropdowns();">&#128203; ปรับสต็อก</button>
+                  <button onclick="openWastageModal('${ing.id}'); closeAllDropdowns();">&#128465; บันทึกของเสีย</button>
+                  <div class="divider"></div>
+                  <button class="danger" onclick="deleteIngredient('${ing.id}', '${escAttr(ing.name)}'); closeAllDropdowns();">&#128465; ลบวัตถุดิบ</button>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  function updateSummaryBar() {
+    const total   = ingredients.length;
+    const lowArr  = ingredients.filter(i => i.current_stock > 0 && i.current_stock <= i.reorder_level);
+    const outArr  = ingredients.filter(i => i.current_stock === 0);
+
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statLow').textContent   = lowArr.length;
+    document.getElementById('statOut').textContent   = outArr.length;
+
+    // Highlight chips when there are issues
+    document.getElementById('statLowChip').style.borderColor = lowArr.length > 0 ? '#f59e0b' : '';
+    document.getElementById('statOutChip').style.borderColor = outArr.length > 0 ? 'var(--error)' : '';
+  }
+
+  async function _writeIngredient(data) {
+    const payload = {
+      name:            data.name,
+      unit:            data.unit,
+      current_stock:   data.current_stock,
+      reorder_level:   data.reorder_level,
+      ingredient_type: data.ingredient_type || 'ingredient',
+      big_unit:        data.big_unit        || null,
+      units_per_big:   data.units_per_big   || 1,
+      cost_per_big:    data.cost_per_big    || 0,
+      cost_per_unit:   (data.cost_per_big > 0 && data.units_per_big > 0)
+                         ? data.cost_per_big / data.units_per_big
+                         : data.cost_per_unit,
+      is_compound:     data.is_compound     || false,
+      batch_yield:     data.batch_yield     || 1,
+    };
+
+    if (!data.id) {
+      // New ingredient — include shop_id when available
+      if (currentUser?.shop_id) payload.shop_id = currentUser.shop_id;
+      const { error } = await supabase.from('ingredients').insert(payload);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('ingredients')
+        .update(payload)
+        .eq('id', data.id);
+      if (error) throw error;
+    }
+  }
+
+  async function adjustStock(ingredientId, delta, reason, notes, type) {
+    // 1. Atomically adjust the stock level via stored function (floors at 0)
+    const { error: rpcError } = await supabase.rpc('adjust_ingredient_stock', {
+      p_ingredient_id: ingredientId,
+      p_delta:         delta,
+    });
+    if (rpcError) throw rpcError;
+
+    // 2. Map UI reason values to the adjustment_type enum
+    const typeMap = {
+      purchase:     'purchase',
+      manual_count: 'count',
+      spillage:     'wastage',
+      expired:      'wastage',
+      other:        'other',
+      wastage:      'wastage',
+    };
+    const adjustmentType = typeMap[reason] || 'other';
+
+    // 3. Log the adjustment for auditing
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error: logError } = await supabase
+      .from('inventory_adjustments')
+      .insert({
+        ingredient_id:   ingredientId,
+        delta:           delta,
+        adjustment_type: adjustmentType,
+        reason:          reason || null,
+        adjusted_by:     user?.id || null,
+      });
+    if (logError) throw logError;
+  }
+
+  async function deleteIngredient(id, name) {
+    if (!confirm(`ปิดการใช้งาน "${name}"? วัตถุดิบจะถูกซ่อนจากคลังสินค้าแต่ยังคงอยู่ในประวัติ`)) return;
+    // Soft-delete: set is_active = false (preserves FK integrity in recipe_bom, etc.)
+    const { error } = await supabase
+      .from('ingredients')
+      .update({ is_active: false })
+      .eq('id', id);
+    if (error) { showToast('ลบไม่สำเร็จ: ' + error.message, true); return; }
+    showToast(`ปิดการใช้งาน "${name}" เรียบร้อย`);
+    await loadIngredients();
+  }
+
+
+  // ─────────────────────────────────── MODAL: ADD / EDIT INGREDIENT
+
+  function onBigUnitChange() {
+    const bigUnit = document.getElementById('ingBigUnit').value;
+    // Auto-suggest conversion for well-known units
+    if (bigUnit === 'kg') {
+      document.getElementById('ingUnitsPerBig').value = 1000;
+      document.getElementById('ingSmallUnit').value   = 'g';
+    } else if (bigUnit === 'L') {
+      document.getElementById('ingUnitsPerBig').value = 1000;
+      document.getElementById('ingSmallUnit').value   = 'ml';
+    } else if (bigUnit === 'แกลลอน') {
+      document.getElementById('ingUnitsPerBig').value = 3785;
+      document.getElementById('ingSmallUnit').value   = 'ml';
+    }
+    // ขวด/กล่อง/กระปุก/ถุง/แพค: leave blank so user fills in
+    recalcIngModal();
+  }
+
+  function recalcIngModal() {
+    const bigUnit     = document.getElementById('ingBigUnit').value;
+    const costBig     = parseFloat(document.getElementById('ingCostBig').value)     || 0;
+    const unitsPerBig = parseFloat(document.getElementById('ingUnitsPerBig').value) || 0;
+    const smallUnit   = document.getElementById('ingSmallUnit').value;
+    const stockBig    = parseFloat(document.getElementById('ingStockBig').value)    || 0;
+    const reorderBig  = parseFloat(document.getElementById('ingReorderBig').value)  || 0;
+
+    // Update inline big-unit labels
+    document.getElementById('ingBigUnitLabel').textContent = bigUnit;
+    document.querySelectorAll('.ing-big-lbl').forEach(el => el.textContent = bigUnit);
+
+    // 6. Cost per small unit — skip when compound (recalcCompoundCost handles it)
+    if (!document.getElementById('ingIsCompound').checked) {
+      if (unitsPerBig > 0 && costBig > 0) {
+        const cSmall = costBig / unitsPerBig;
+        document.getElementById('ingCostSmallDisplay').value = `฿${fmtCost4(cSmall)} / ${smallUnit}`;
+      } else {
+        document.getElementById('ingCostSmallDisplay').value = '';
+      }
+    }
+    // Note: recalcCompoundCost() calls recalcIngModal() at its end, so no reverse call here.
+
+    // 7. Stock hint
+    document.getElementById('ingStockHint').textContent =
+      (unitsPerBig > 0 && stockBig > 0)
+        ? `= ${(stockBig * unitsPerBig).toLocaleString('th-TH', { maximumFractionDigits: 2 })} ${smallUnit}`
+        : '';
+
+    // 8. Reorder hint
+    document.getElementById('ingReorderHint').textContent =
+      (unitsPerBig > 0 && reorderBig > 0)
+        ? `= ${(reorderBig * unitsPerBig).toLocaleString('th-TH', { maximumFractionDigits: 2 })} ${smallUnit}`
+        : '';
+  }
+
+  function openIngredientModal(ingredientId) {
+    const isNew = !ingredientId;
+    document.getElementById('ingredientModalTitle').textContent = isNew ? 'เพิ่มวัตถุดิบ' : 'แก้ไขวัตถุดิบ';
+    document.getElementById('ingredientId').value       = ingredientId || '';
+    document.getElementById('ingredientModalMsg').className = 'msg';
+
+    // Reset compound state
+    compoundParts = [];
+    document.getElementById('ingIsCompound').checked = false;
+    document.getElementById('compoundSection').style.display  = 'none';
+    document.getElementById('ingCostBig').readOnly             = false;
+    document.getElementById('ingCostBig').style.background     = '';
+    document.getElementById('ingCostBig').style.color          = '';
+    document.getElementById('costBigGroup').style.display      = '';
+    renderCompoundParts();
+    populateCompoundPartSelect();
+
+    if (isNew) {
+      document.getElementById('ingredientName').value   = '';
+      document.querySelector('input[name="ingType"][value="ingredient"]').checked = true;
+      document.getElementById('ingBigUnit').value       = 'kg';
+      document.getElementById('ingCostBig').value       = '';
+      document.getElementById('ingUnitsPerBig').value   = 1000;
+      document.getElementById('ingSmallUnit').value     = 'g';
+      document.getElementById('ingBatchYieldBig').value = '';
+      document.getElementById('ingStockBig').value      = '';
+      document.getElementById('ingReorderBig').value    = '';
+    } else {
+      const ing = ingredients.find(i => i.id === ingredientId);
+      if (!ing) return;
+
+      document.getElementById('ingredientName').value = ing.name;
+      const typeVal = ing.ingredient_type || 'ingredient';
+      document.querySelector(`input[name="ingType"][value="${typeVal}"]`).checked = true;
+
+      // Determine big unit — fall back from unit if not yet saved
+      let bigUnit     = ing.big_unit;
+      let unitsPerBig = parseFloat(ing.units_per_big) || 1;
+      let smallUnit   = ing.unit || 'g';
+
+      if (!bigUnit) {
+        if (smallUnit === 'g')        { bigUnit = 'kg'; unitsPerBig = 1000; }
+        else if (smallUnit === 'ml')  { bigUnit = 'L';  unitsPerBig = 1000; }
+        else                          { bigUnit = 'ขวด'; unitsPerBig = 1;   }
+      }
+
+      const bigOptions = ['kg','L','ขวด','กล่อง','กระปุก','ถุง','แพค','แกลลอน'];
+      if (!bigOptions.includes(bigUnit)) bigUnit = 'ขวด';
+
+      document.getElementById('ingBigUnit').value      = bigUnit;
+      document.getElementById('ingUnitsPerBig').value  = unitsPerBig;
+      document.getElementById('ingSmallUnit').value    = ['g','ml','pcs'].includes(smallUnit) ? smallUnit : 'g';
+
+      // Populate big-unit inputs — cost_per_big stored directly, others reverse-calculated
+      const costBig    = parseFloat(ing.cost_per_big) > 0
+        ? parseFloat(ing.cost_per_big)
+        : (unitsPerBig > 0 ? ing.cost_per_unit * unitsPerBig : ing.cost_per_unit);
+      const stockBig   = unitsPerBig > 0 ? ing.current_stock  / unitsPerBig : ing.current_stock;
+      const reorderBig = unitsPerBig > 0 ? ing.reorder_level  / unitsPerBig : ing.reorder_level;
+
+      document.getElementById('ingCostBig').value    = costBig    > 0 ? parseFloat(costBig.toFixed(2))    : '';
+      document.getElementById('ingStockBig').value   = stockBig   > 0 ? parseFloat(stockBig.toFixed(6))   : '';
+      document.getElementById('ingReorderBig').value = reorderBig > 0 ? parseFloat(reorderBig.toFixed(6)) : '';
+
+      // Compound fields
+      if (ing.is_compound) {
+        const batchYieldBig = unitsPerBig > 0 ? (ing.batch_yield || 1) / unitsPerBig : (ing.batch_yield || 1);
+        document.getElementById('ingBatchYieldBig').value = parseFloat(batchYieldBig.toFixed(6));
+        document.getElementById('ingIsCompound').checked = true;
+        // Load parts asynchronously after opening modal
+        _loadCompoundParts(ingredientId);
+      }
+    }
+
+    const bigUnitVal = document.getElementById('ingBigUnit').value;
+    document.getElementById('ingBigUnitLabel').textContent = bigUnitVal;
+    document.querySelectorAll('.ing-big-lbl').forEach(el => el.textContent = bigUnitVal);
+
+    if (document.getElementById('ingIsCompound').checked) {
+      toggleCompoundMode();
+    } else {
+      recalcIngModal();
+    }
+    openModal('ingredientModal');
+  }
+
+  async function _loadCompoundParts(ingredientId) {
+    const { data, error } = await window.supabase
+      .from('compound_ingredient_parts')
+      .select('part_ingredient_id, quantity_per_batch, ingredients!part_ingredient_id(name, unit, cost_per_unit, cost_per_big, units_per_big)')
+      .eq('compound_ingredient_id', ingredientId);
+    if (error) { console.warn('Failed to load compound parts:', error.message); return; }
+    compoundParts = (data || []).map(row => ({
+      partId:        row.part_ingredient_id,
+      partName:      row.ingredients.name,
+      partUnit:      row.ingredients.unit,
+      costPerUnit:   row.ingredients.cost_per_unit,
+      costPerBig:    row.ingredients.cost_per_big   || 0,
+      unitsPerBig:   row.ingredients.units_per_big  || 1,
+      qtyPerBatch:   row.quantity_per_batch,
+    }));
+    renderCompoundParts();
+    recalcCompoundCost();
+  }
+
+  async function saveIngredient() {
+    const btn   = document.getElementById('ingredientSaveBtn');
+    const msgEl = document.getElementById('ingredientModalMsg');
+    msgEl.className = 'msg';
+
+    const name          = document.getElementById('ingredientName').value.trim();
+    const ingType       = document.querySelector('input[name="ingType"]:checked').value;
+    const isCompound    = document.getElementById('ingIsCompound').checked;
+    const bigUnit       = document.getElementById('ingBigUnit').value;
+    const costBig       = parseFloat(document.getElementById('ingCostBig').value);
+    const unitsPerBig   = parseFloat(document.getElementById('ingUnitsPerBig').value);
+    const smallUnit     = document.getElementById('ingSmallUnit').value;
+    const stockBig      = parseFloat(document.getElementById('ingStockBig').value)        || 0;
+    const reorderBig    = parseFloat(document.getElementById('ingReorderBig').value)      || 0;
+    const batchYieldBig = isCompound ? (parseFloat(document.getElementById('ingBatchYieldBig').value) || 0) : 1;
+    const id            = document.getElementById('ingredientId').value || null;
+
+    if (!name) { msgEl.textContent = 'กรุณากรอกชื่อวัตถุดิบ'; msgEl.className = 'msg error'; return; }
+    if (isNaN(unitsPerBig) || unitsPerBig <= 0) { msgEl.textContent = 'กรุณากรอกจำนวนหน่วยย่อยต่อหน่วยซื้อ'; msgEl.className = 'msg error'; return; }
+    if (isCompound) {
+      if (compoundParts.length === 0)  { msgEl.textContent = 'กรุณาเพิ่มส่วนผสมอย่างน้อย 1 รายการ'; msgEl.className = 'msg error'; return; }
+      if (batchYieldBig <= 0)          { msgEl.textContent = 'กรุณากรอกปริมาณที่ได้ต่อสูตร';        msgEl.className = 'msg error'; return; }
+    } else {
+      if (isNaN(costBig) || costBig <= 0) { msgEl.textContent = 'กรุณากรอกราคา/หน่วยซื้อ (ต้องมากกว่า 0)'; msgEl.className = 'msg error'; return; }
+    }
+
+    // For compound: cost derived from parts; for normal: from user input
+    let finalCostBig = costBig;
+    if (isCompound) {
+      const totalPartsCost = compoundParts.reduce((sum, p) => {
+        const cpu = (p.costPerBig > 0 && p.unitsPerBig > 0) ? p.costPerBig / p.unitsPerBig : p.costPerUnit;
+        return sum + cpu * p.qtyPerBatch;
+      }, 0);
+      finalCostBig = batchYieldBig > 0 ? totalPartsCost / batchYieldBig : 0;
+    }
+
+    const batchYieldSmall = batchYieldBig * unitsPerBig;
+    const costPerUnit     = finalCostBig / unitsPerBig;
+    const currentStock    = stockBig  * unitsPerBig;
+    const reorderLevel    = reorderBig * unitsPerBig;
+
+    btn.disabled    = true;
+    btn.textContent = 'กำลังบันทึก…';
+
+    try {
+      await _writeIngredient({
+        id,
+        name,
+        unit:            smallUnit,
+        cost_per_unit:   costPerUnit,
+        cost_per_big:    finalCostBig,
+        current_stock:   currentStock,
+        reorder_level:   reorderLevel,
+        ingredient_type: ingType,
+        big_unit:        bigUnit,
+        units_per_big:   unitsPerBig,
+        is_compound:     isCompound,
+        batch_yield:     isCompound ? batchYieldSmall : 1,
+      });
+
+      // Save compound parts (delete existing + insert fresh)
+      if (id && isCompound) {
+        await window.supabase.from('compound_ingredient_parts').delete().eq('compound_ingredient_id', id);
+      }
+      const savedId = id || (await window.supabase.from('ingredients').select('id').eq('name', name).order('created_at', { ascending: false }).limit(1).single()).data?.id;
+      if (isCompound && savedId && compoundParts.length > 0) {
+        const rows = compoundParts.map(p => ({
+          compound_ingredient_id: savedId,
+          part_ingredient_id:     p.partId,
+          quantity_per_batch:     p.qtyPerBatch,
+        }));
+        const { error: partsErr } = await window.supabase.from('compound_ingredient_parts').insert(rows);
+        if (partsErr) throw partsErr;
+      }
+      closeModal('ingredientModal');
+      showToast(id ? 'แก้ไขวัตถุดิบเรียบร้อย' : 'เพิ่มวัตถุดิบเรียบร้อย');
+      await loadIngredients();
+    } catch (err) {
+      msgEl.textContent = 'บันทึกไม่สำเร็จ: ' + (err.message || err);
+      msgEl.className   = 'msg error';
+    }
+
+    btn.disabled    = false;
+    btn.textContent = 'บันทึก';
+  }
+
+
+  // ─────────────────────────────────── COMPOUND INGREDIENT LOGIC
+  let compoundParts = []; // { partId, partName, partUnit, costPerUnit, costPerBig, unitsPerBig, qtyPerBatch }
+
+  function toggleCompoundMode() {
+    const isCompound = document.getElementById('ingIsCompound').checked;
+    document.getElementById('compoundSection').style.display  = isCompound ? '' : 'none';
+    document.getElementById('costBigGroup').style.display      = isCompound ? 'none' : '';
+    document.getElementById('ingCostBig').readOnly             = isCompound;
+    document.getElementById('ingCostBig').style.background     = isCompound ? 'var(--surface-warm)' : '';
+    document.getElementById('ingCostBig').style.color          = isCompound ? 'var(--text-muted)' : '';
+    if (isCompound) {
+      populateCompoundPartSelect();
+      recalcCompoundCost();
+    } else {
+      recalcIngModal();
+    }
+  }
+
+  function populateCompoundPartSelect() {
+    const currentId = document.getElementById('ingredientId').value;
+    const sel = document.getElementById('compoundPartSelect');
+    sel.innerHTML = '<option value="">— เลือกวัตถุดิบ —</option>' +
+      ingredients
+        .filter(i => i.id !== currentId && !i.is_compound)
+        .map(i => `<option value="${i.id}">${escHtml(i.name)} (${escHtml(i.unit)})</option>`)
+        .join('');
+  }
+
+  function onCompoundPartChange() {
+    const ing = ingredients.find(i => i.id === document.getElementById('compoundPartSelect').value);
+    document.getElementById('compoundPartUnitLabel').textContent = ing ? ing.unit : '';
+  }
+
+  function addCompoundPart() {
+    const partId = document.getElementById('compoundPartSelect').value;
+    const qty    = parseFloat(document.getElementById('compoundPartQty').value);
+    if (!partId)                    { showToast('เลือกวัตถุดิบก่อน', true);        return; }
+    if (isNaN(qty) || qty <= 0)     { showToast('กรอกปริมาณที่ถูกต้อง', true);    return; }
+    if (compoundParts.some(p => p.partId === partId)) { showToast('วัตถุดิบนี้มีอยู่แล้ว', true); return; }
+    const ing = ingredients.find(i => i.id === partId);
+    compoundParts.push({
+      partId, qtyPerBatch: qty,
+      partName:   ing.name,
+      partUnit:   ing.unit,
+      costPerUnit: ing.cost_per_unit  || 0,
+      costPerBig:  ing.cost_per_big   || 0,
+      unitsPerBig: ing.units_per_big  || 1,
+    });
+    document.getElementById('compoundPartSelect').value = '';
+    document.getElementById('compoundPartQty').value    = '';
+    document.getElementById('compoundPartUnitLabel').textContent = '';
+    renderCompoundParts();
+    recalcCompoundCost();
+  }
+
+  function removeCompoundPart(idx) {
+    compoundParts.splice(idx, 1);
+    renderCompoundParts();
+    recalcCompoundCost();
+  }
+
+  function renderCompoundParts() {
+    const el = document.getElementById('compoundPartsList');
+    if (!compoundParts.length) {
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:var(--text-sm);padding:6px 0;">ยังไม่มีส่วนผสม</div>';
+      return;
+    }
+    el.innerHTML = `
+      <table class="compound-parts-table">
+        <thead>
+          <tr>
+            <th>วัตถุดิบ</th>
+            <th style="text-align:right;">ปริมาณ/สูตร</th>
+            <th style="text-align:right;">ต้นทุน</th>
+            <th style="width:28px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${compoundParts.map((p, i) => {
+            const cpu      = (p.costPerBig > 0 && p.unitsPerBig > 0) ? p.costPerBig / p.unitsPerBig : p.costPerUnit;
+            const lineCost = cpu * p.qtyPerBatch;
+            return `<tr>
+              <td style="font-weight:600;">${escHtml(p.partName)}</td>
+              <td style="text-align:right;color:var(--text-secondary);">${fmtNum(p.qtyPerBatch)} ${escHtml(p.partUnit)}</td>
+              <td style="text-align:right;color:var(--text-secondary);">฿${fmtCost(lineCost)}</td>
+              <td style="text-align:right;">
+                <button type="button" onclick="removeCompoundPart(${i})"
+                  style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;padding:2px 4px;border-radius:4px;"
+                  onmouseenter="this.style.color='var(--error)'" onmouseleave="this.style.color='var(--text-muted)'">&times;</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  function recalcCompoundCost() {
+    const batchYieldBig   = parseFloat(document.getElementById('ingBatchYieldBig').value) || 0;
+    const unitsPerBig     = parseFloat(document.getElementById('ingUnitsPerBig').value)   || 0;
+    const smallUnit       = document.getElementById('ingSmallUnit').value;
+    const bigUnit         = document.getElementById('ingBigUnit').value;
+    const batchYieldSmall = batchYieldBig * unitsPerBig;
+
+    // Total cost from all parts
+    const totalCost = compoundParts.reduce((sum, p) => {
+      const cpu = (p.costPerBig > 0 && p.unitsPerBig > 0) ? p.costPerBig / p.unitsPerBig : p.costPerUnit;
+      return sum + cpu * p.qtyPerBatch;
+    }, 0);
+    document.getElementById('compoundTotalCost').textContent = `฿${fmtCost(totalCost)}`;
+
+    // Cost per big unit and per small unit
+    if (batchYieldBig > 0 && batchYieldSmall > 0) {
+      const costPerBig   = totalCost / batchYieldBig;
+      const costPerSmall = totalCost / batchYieldSmall;
+      document.getElementById('compoundCostPerBig').textContent   = `฿${fmtCost(costPerBig)} / ${bigUnit}`;
+      document.getElementById('compoundCostPerSmall').textContent = `฿${fmtCost4(costPerSmall)} / ${smallUnit}`;
+      // Auto-fill the cost field and display
+      document.getElementById('ingCostBig').value          = fmtCost(costPerBig);
+      document.getElementById('ingCostSmallDisplay').value = `฿${fmtCost4(costPerSmall)} / ${smallUnit}`;
+    } else {
+      document.getElementById('compoundCostPerBig').textContent   = '฿—';
+      document.getElementById('compoundCostPerSmall').textContent = '฿—';
+      document.getElementById('ingCostBig').value          = '';
+      document.getElementById('ingCostSmallDisplay').value = '';
+    }
+
+    // Update big-unit labels and stock/reorder hints only — not cost (avoids loop)
+    const bigUnitVal = bigUnit;
+    document.getElementById('ingBigUnitLabel').textContent = bigUnitVal;
+    document.querySelectorAll('.ing-big-lbl').forEach(el => el.textContent = bigUnitVal);
+    // Reorder/stock hints
+    const stockBig   = parseFloat(document.getElementById('ingStockBig').value)   || 0;
+    const reorderBig = parseFloat(document.getElementById('ingReorderBig').value) || 0;
+    document.getElementById('ingStockHint').textContent   = (unitsPerBig > 0 && stockBig > 0)
+      ? `= ${(stockBig * unitsPerBig).toLocaleString('th-TH', { maximumFractionDigits: 2 })} ${smallUnit}` : '';
+    document.getElementById('ingReorderHint').textContent = (unitsPerBig > 0 && reorderBig > 0)
+      ? `= ${(reorderBig * unitsPerBig).toLocaleString('th-TH', { maximumFractionDigits: 2 })} ${smallUnit}` : '';
+    document.getElementById('ingBatchYieldHint').textContent = batchYieldSmall > 0
+      ? `= ${batchYieldSmall.toLocaleString('th-TH', { maximumFractionDigits: 2 })} ${smallUnit}` : '';
+  }
+
+  // ─────────────────────────────────── MODAL: ADJUST STOCK
+  function openAdjustModal(ingredientId) {
+    const ing = ingredients.find(i => i.id === ingredientId);
+    if (!ing) return;
+
+    const upb     = parseFloat(ing.units_per_big) || 1;
+    const bigUnit = ing.big_unit || ing.unit;
+    const stockBig = upb > 0 ? ing.current_stock / upb : ing.current_stock;
+
+    const idEl = document.getElementById('adjustIngredientId');
+    idEl.value               = ing.id;
+    idEl.dataset.upb         = upb;
+    idEl.dataset.bigUnit     = bigUnit;
+    idEl.dataset.smallUnit   = ing.unit;
+
+    document.getElementById('adjustIngredientName').value = ing.name;
+    document.getElementById('adjustSubtitle').textContent =
+      `สต็อกปัจจุบัน: ${fmtNum(stockBig)} ${bigUnit}  (${fmtNum(ing.current_stock)} ${ing.unit})`;
+    document.getElementById('adjustQtyUnit').textContent  = bigUnit;
+    document.getElementById('adjustQtyHint').textContent  = `1 ${bigUnit} = ${fmtNum(upb)} ${ing.unit}`;
+    document.getElementById('adjustQty').value    = '';
+    document.getElementById('adjustNotes').value  = '';
+    document.getElementById('adjustReason').value = 'purchase';
+    document.getElementById('adjustTypeAdd').checked = true;
+    openModal('adjustStockModal');
+  }
+
+  async function confirmAdjustStock() {
+    const idEl   = document.getElementById('adjustIngredientId');
+    const id     = idEl.value;
+    const type   = document.querySelector('input[name="adjustType"]:checked').value;
+    const qtyBig = parseFloat(document.getElementById('adjustQty').value);
+    const reason = document.getElementById('adjustReason').value;
+    const notes  = document.getElementById('adjustNotes').value.trim();
+    const upb    = parseFloat(idEl.dataset.upb)    || 1;
+    const bigUnit = idEl.dataset.bigUnit || '';
+
+    if (isNaN(qtyBig) || qtyBig <= 0) { showToast('กรุณากรอกจำนวนที่ถูกต้อง', true); return; }
+
+    const qtySmall = qtyBig * upb;
+    const delta    = type === 'add' ? qtySmall : -qtySmall;
+
+    try {
+      await adjustStock(id, delta, reason, notes, type);
+      closeModal('adjustStockModal');
+      showToast(type === 'add'
+        ? `เพิ่มสต็อก ${fmtNum(qtyBig)} ${bigUnit} เรียบร้อย`
+        : `ลดสต็อก ${fmtNum(qtyBig)} ${bigUnit} เรียบร้อย`);
+      await loadIngredients();
+    } catch (err) {
+      showToast('ปรับสต็อกไม่สำเร็จ: ' + (err.message || err), true);
+    }
+  }
+
+
+  // ─────────────────────────────────── MODAL: LOG WASTAGE
+  function openWastageModal(ingredientId) {
+    const ing = ingredients.find(i => i.id === ingredientId);
+    if (!ing) return;
+
+    const upb     = parseFloat(ing.units_per_big) || 1;
+    const bigUnit = ing.big_unit || ing.unit;
+
+    const idEl = document.getElementById('wastageIngredientId');
+    idEl.value             = ing.id;
+    idEl.dataset.upb       = upb;
+    idEl.dataset.bigUnit   = bigUnit;
+
+    document.getElementById('wastageIngredientName').value = ing.name;
+    document.getElementById('wastageQtyUnit').textContent  = bigUnit;
+    document.getElementById('wastageQty').value   = '';
+    document.getElementById('wastageNotes').value = '';
+    openModal('wastageModal');
+  }
+
+  async function confirmLogWastage() {
+    const idEl   = document.getElementById('wastageIngredientId');
+    const id     = idEl.value;
+    const qtyBig = parseFloat(document.getElementById('wastageQty').value);
+    const notes  = document.getElementById('wastageNotes').value.trim();
+    const upb    = parseFloat(idEl.dataset.upb)    || 1;
+    const bigUnit = idEl.dataset.bigUnit || '';
+
+    if (isNaN(qtyBig) || qtyBig <= 0) { showToast('กรุณากรอกจำนวนที่ถูกต้อง', true); return; }
+
+    const qtySmall = qtyBig * upb;
+
+    try {
+      await adjustStock(id, -qtySmall, 'wastage');
+      closeModal('wastageModal');
+      showToast(`บันทึกของเสีย ${fmtNum(qtyBig)} ${bigUnit} เรียบร้อย`);
+      await loadIngredients();
+    } catch (err) {
+      showToast('บันทึกไม่สำเร็จ: ' + (err.message || err), true);
+    }
+  }
+
+
+  // ─────────────────────────────────── DATA: BOM / RECIPE
+  let currentMenuPrice = 0; // selling price for the selected menu item
+
+  async function loadBOM(menuId) {
+    // Fetch BOM rows joined with ingredient details
+    const { data, error } = await supabase
+      .from('recipe_bom')
+      .select('id, ingredient_id, quantity_used, ingredients(name, unit, cost_per_unit)')
+      .eq('menu_id', menuId);
+    if (error) throw error;
+    currentBOM = data || [];
+
+    // Fetch selling price from menus table for food cost % calculation
+    const { data: menuData, error: menuError } = await supabase
+      .from('menus')
+      .select('base_price')
+      .eq('id', menuId)
+      .single();
+    currentMenuPrice = (!menuError && menuData?.base_price) ? parseFloat(menuData.base_price) : 0;
+  }
+
+  async function saveBOMEntry(menuId, ingredientId, qty) {
+    const { error } = await supabase.from('recipe_bom').insert({
+      menu_id:       menuId,
+      ingredient_id: ingredientId,
+      quantity_used: qty,
+    });
+    if (error) throw error;
+  }
+
+  async function deleteBOMEntry(bomEntryId) {
+    const { error } = await supabase.from('recipe_bom').delete().eq('id', bomEntryId);
+    if (error) throw error;
+  }
+
+  async function onMenuSelected(menuId) {
+    currentMenuId = menuId || null;
+    const addBtn      = document.getElementById('bomAddIngBtn');
+    const overrideBtn = document.getElementById('bomOverrideBtn');
+    const addRowBtn   = document.getElementById('bomAddRowBtn');
+    const list        = document.getElementById('bomIngredientList');
+    const emptyPrompt = document.getElementById('bomEmptyPrompt');
+    const skeleton    = document.getElementById('bomSkeleton');
+    const cardTitle   = document.getElementById('bomCardTitle');
+
+    if (!menuId) {
+      // No menu selected — show prompt, reset costs
+      addBtn.disabled           = true;
+      overrideBtn.disabled      = true;
+      overrideBtn.style.display = 'none';
+      emptyPrompt.style.display = '';
+      skeleton.style.display    = 'none';
+      list.style.display        = 'none';
+      addRowBtn.style.display   = 'none';
+      resetCostCard();
+      return;
+    }
+
+    // Loading state
+    addBtn.disabled           = true;
+    overrideBtn.disabled      = true;
+    overrideBtn.style.display = 'none';
+    emptyPrompt.style.display = 'none';
+    skeleton.style.display    = '';
+    list.style.display        = 'none';
+    addRowBtn.style.display   = 'none';
+
+    try {
+      await loadBOM(menuId);
+
+      // Derive selected option label for card title
+      const sel = document.getElementById('bomMenuSelect');
+      const label = sel.options[sel.selectedIndex]?.text || 'สูตรอาหาร';
+      cardTitle.textContent = label;
+
+      renderBOMList();
+
+      skeleton.style.display  = 'none';
+      list.style.display      = currentBOM.length ? '' : 'none';
+      if (!currentBOM.length) {
+        emptyPrompt.querySelector('span').textContent = '&#128203;';
+        emptyPrompt.style.display = '';
+      }
+      addRowBtn.style.display   = '';
+      addBtn.disabled           = false;
+      overrideBtn.disabled      = false;
+      overrideBtn.style.display = '';
+      updateCostCard();
+    } catch (err) {
+      skeleton.style.display = 'none';
+      showToast('โหลดสูตรไม่สำเร็จ: ' + (err.message || err), true);
+    }
+  }
+
+  function renderBOMList() {
+    const list = document.getElementById('bomIngredientList');
+    list.innerHTML = currentBOM.map(entry => `
+      <div class="bom-ingredient-row" id="bom_row_${entry.id}">
+        <span class="bom-ingredient-name">${escHtml(entry.ingredients.name)}</span>
+        <span class="bom-ingredient-qty">
+          ${fmtNum(entry.quantity_used)} ${escHtml(entry.ingredients.unit)}
+        </span>
+        <button class="bom-remove-btn"
+                onclick="removeBOMEntry('${entry.id}')"
+                aria-label="ลบออกจากสูตร">&times;</button>
+      </div>`
+    ).join('');
+    list.style.display = currentBOM.length ? '' : 'none';
+  }
+
+  async function removeBOMEntry(entryId) {
+    if (!confirm('ลบวัตถุดิบนี้ออกจากสูตร?')) return;
+    try {
+      await deleteBOMEntry(entryId);
+      currentBOM = currentBOM.filter(e => e.id !== entryId);
+      renderBOMList();
+      updateCostCard();
+      showToast('ลบออกจากสูตรเรียบร้อย');
+    } catch (err) {
+      showToast('ลบไม่สำเร็จ: ' + (err.message || err), true);
+    }
+  }
+
+  function updateCostCard() {
+    const recipeCost = currentBOM.reduce((sum, e) => {
+      return sum + (e.quantity_used * e.ingredients.cost_per_unit);
+    }, 0);
+
+    // currentMenuPrice is fetched from menus.price inside loadBOM()
+    const sellingPrice = currentMenuPrice;
+
+    document.getElementById('costRecipe').textContent  = `฿${fmtCost(recipeCost)}`;
+    document.getElementById('costSelling').textContent = sellingPrice > 0 ? `฿${fmtCost(sellingPrice)}` : '฿—';
+
+    if (sellingPrice > 0) {
+      const pct = (recipeCost / sellingPrice) * 100;
+      document.getElementById('costPct').textContent = pct.toFixed(1) + '%';
+    } else {
+      document.getElementById('costPct').textContent = '—';
+    }
+  }
+
+  function resetCostCard() {
+    document.getElementById('costRecipe').textContent  = '฿—';
+    document.getElementById('costSelling').textContent = '฿—';
+    document.getElementById('costPct').textContent     = '—';
+    document.getElementById('bomCardTitle').textContent = 'ส่วนผสม';
+  }
+
+
+  // ─────────────────────────────────── MODAL: ADD TO BOM
+  function populateBOMIngredientSelect() {
+    const sel = document.getElementById('bomIngredientSelect');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">— เลือกวัตถุดิบ —</option>' +
+      ingredients.map(ing =>
+        `<option value="${ing.id}">${escHtml(ing.name)} (${escHtml(ing.unit)})</option>`
+      ).join('');
+    sel.value = current;
+  }
+
+  function openAddToBOMModal() {
+    if (!currentMenuId) { showToast('กรุณาเลือกเมนูก่อน', true); return; }
+    document.getElementById('bomIngredientSelect').value = '';
+    document.getElementById('bomQty').value   = '';
+    document.getElementById('bomUnitHint').textContent = '';
+    const sel  = document.getElementById('bomMenuSelect');
+    const label = sel.options[sel.selectedIndex]?.text || '';
+    document.getElementById('bomModalSubtitle').textContent = `สูตร: ${label}`;
+    openModal('bomModal');
+  }
+
+  function onBOMIngredientSelected(ingredientId) {
+    const ing  = ingredients.find(i => i.id === ingredientId);
+    const hint = document.getElementById('bomUnitHint');
+    hint.textContent = ing ? `หน่วย: ${ing.unit}` : '';
+  }
+
+  async function confirmAddToBOM() {
+    const ingredientId = document.getElementById('bomIngredientSelect').value;
+    const qty          = parseFloat(document.getElementById('bomQty').value);
+
+    if (!ingredientId) { showToast('กรุณาเลือกวัตถุดิบ', true); return; }
+    if (isNaN(qty) || qty <= 0) { showToast('กรุณากรอกปริมาณที่ถูกต้อง', true); return; }
+
+    // Prevent duplicates
+    if (currentBOM.some(e => e.ingredient_id === ingredientId)) {
+      showToast('วัตถุดิบนี้มีในสูตรอยู่แล้ว', true); return;
+    }
+
+    try {
+      await saveBOMEntry(currentMenuId, ingredientId, qty);
+
+      // Optimistically add to local state while waiting for Supabase reload
+      const ing = ingredients.find(i => i.id === ingredientId);
+      currentBOM.push({
+        id: 'temp_' + Date.now(),
+        ingredient_id: ingredientId,
+        quantity_used: qty,
+        ingredients: { name: ing.name, unit: ing.unit, cost_per_unit: ing.cost_per_unit },
+      });
+
+      closeModal('bomModal');
+      renderBOMList();
+      updateCostCard();
+      document.getElementById('bomIngredientList').style.display = '';
+      document.getElementById('bomEmptyPrompt').style.display    = 'none';
+      document.getElementById('bomAddRowBtn').style.display      = '';
+      showToast('เพิ่มส่วนผสมเรียบร้อย');
+    } catch (err) {
+      showToast('เพิ่มไม่สำเร็จ: ' + (err.message || err), true);
+    }
+  }
+
+
+  // ─────────────────────────────────── OPTION OVERRIDES MODAL
+  // State for the overrides modal
+  let overridesData    = null; // { groups: [...], overridesByChoiceId: {...} }
+  let activeAddFormId  = null; // choice_id currently showing inline add-form
+
+  async function openOptionOverridesModal() {
+    if (!currentMenuId) return;
+    const sel   = document.getElementById('bomMenuSelect');
+    const label = sel.options[sel.selectedIndex]?.text || '';
+    document.getElementById('overridesSubtitle').textContent =
+      `เมนู: ${label} — กำหนดว่าเมื่อลูกค้าเลือก option ใด จะหักวัตถุดิบอย่างไร`;
+    document.getElementById('overridesBody').innerHTML =
+      '<div class="ov-loading">&#8987; กำลังโหลด…</div>';
+    openModal('overridesModal');
+    await loadAndRenderOverrides();
+  }
+
+  async function loadAndRenderOverrides() {
+    // 1. Option groups + choices assigned to this menu
+    const { data: groupRows, error: gErr } = await supabase
+      .from('menu_option_templates')
+      .select('template_id, option_templates(id, name, name_th, option_template_choices(id, name, name_th, sort_order))')
+      .eq('menu_id', currentMenuId)
+      .order('sort_order');
+
+    if (gErr) {
+      document.getElementById('overridesBody').innerHTML =
+        '<div class="ov-empty">โหลดข้อมูล option ไม่สำเร็จ</div>';
+      return;
+    }
+
+    const groups = (groupRows || []).map(r => ({
+      id:      r.option_templates.id,
+      name:    r.option_templates.name,
+      nameTh:  r.option_templates.name_th,
+      choices: (r.option_templates.option_template_choices || [])
+                  .sort((a, b) => a.sort_order - b.sort_order),
+    }));
+
+    if (!groups.length) {
+      document.getElementById('overridesBody').innerHTML =
+        '<div class="ov-empty">เมนูนี้ยังไม่มี option group — เพิ่มก่อนที่หน้า Options</div>';
+      return;
+    }
+
+    // 2. Existing override rules for all choices in these groups
+    const allChoiceIds = groups.flatMap(g => g.choices.map(c => c.id));
+    const { data: ruleRows, error: rErr } = await supabase
+      .from('bom_option_overrides')
+      .select(`
+        id, choice_id, action, quantity_used,
+        target_ingredient:target_ingredient_id (id, name, unit),
+        ingredient:ingredient_id (id, name, unit)
+      `)
+      .in('choice_id', allChoiceIds);
+
+    if (rErr) {
+      document.getElementById('overridesBody').innerHTML =
+        '<div class="ov-empty">โหลด override rules ไม่สำเร็จ</div>';
+      return;
+    }
+
+    const byChoice = {};
+    (ruleRows || []).forEach(r => {
+      if (!byChoice[r.choice_id]) byChoice[r.choice_id] = [];
+      byChoice[r.choice_id].push(r);
+    });
+
+    overridesData = { groups, overridesByChoiceId: byChoice };
+    renderOverridesModal();
+  }
+
+  function renderOverridesModal() {
+    const { groups, overridesByChoiceId } = overridesData;
+    activeAddFormId = null;
+
+    const html = groups.map(group => `
+      <div class="ov-group">
+        <div class="ov-group-header">
+          &#9881;&nbsp;${escHtml(group.nameTh || group.name)}
+          <span style="font-weight:400;text-transform:none;letter-spacing:0;">${escHtml(group.name)}</span>
+        </div>
+        ${group.choices.map(choice => renderChoiceBlock(choice, overridesByChoiceId[choice.id] || [])).join('')}
+      </div>
+    `).join('');
+
+    document.getElementById('overridesBody').innerHTML = html || '<div class="ov-empty">ไม่พบ option groups</div>';
+  }
+
+  function renderChoiceBlock(choice, rules) {
+    const rulesHtml = rules.map(r => renderRuleRow(r)).join('');
+    return `
+      <div class="ov-choice" id="ov_choice_${choice.id}">
+        <div class="ov-choice-header">
+          <div class="ov-choice-name">
+            ${escHtml(choice.name_th || choice.name)}
+            ${choice.name_th ? `<span>${escHtml(choice.name)}</span>` : ''}
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="toggleAddForm('${choice.id}')">+ Rule</button>
+        </div>
+        <div class="ov-rules" id="ov_rules_${choice.id}">${rulesHtml}</div>
+        <div id="ov_form_${choice.id}" style="display:none;">
+          ${buildAddRuleForm(choice.id)}
+        </div>
+      </div>`;
+  }
+
+  function renderRuleRow(rule) {
+    const actionLabel = { replace: 'แทนที่', add: 'เพิ่ม', remove: 'ลบ' }[rule.action] || rule.action;
+    let desc = '';
+    if (rule.action === 'replace') {
+      const fromName = rule.target_ingredient?.name || '?';
+      const toName   = rule.ingredient?.name || '?';
+      const qty      = rule.quantity_used != null ? ` (${fmtNum(rule.quantity_used)} ${rule.ingredient?.unit || ''})` : ' (qty เดิม)';
+      desc = `${escHtml(fromName)} → ${escHtml(toName)}${qty}`;
+    } else if (rule.action === 'add') {
+      const name = rule.ingredient?.name || '?';
+      const unit = rule.ingredient?.unit || '';
+      desc = `${escHtml(name)} × ${fmtNum(rule.quantity_used)} ${escHtml(unit)}`;
+    } else if (rule.action === 'remove') {
+      const name = rule.target_ingredient?.name || '?';
+      desc = `ไม่หัก ${escHtml(name)}`;
+    }
+    return `
+      <div class="ov-rule-row" id="ov_rule_${rule.id}">
+        <span class="ov-rule-badge ${rule.action}">${actionLabel}</span>
+        <span class="ov-rule-desc">${desc}</span>
+        <button class="ov-rule-del" onclick="deleteOverrideRule('${rule.id}', '${rule.choice_id}')"
+                title="ลบ rule นี้">&times;</button>
+      </div>`;
+  }
+
+  function buildAddRuleForm(choiceId) {
+    // Build ingredient options from the global `ingredients` array
+    const ingOptions = ingredients.map(i =>
+      `<option value="${i.id}">${escHtml(i.name)} (${escHtml(i.unit)})</option>`
+    ).join('');
+
+    return `
+      <div class="ov-add-form">
+        <div class="form-group">
+          <label>Action</label>
+          <select id="ov_action_${choiceId}" onchange="onOverrideActionChange('${choiceId}')">
+            <option value="replace">แทนที่ (replace) — สลับวัตถุดิบ</option>
+            <option value="add">เพิ่ม (add) — เพิ่มวัตถุดิบพิเศษ</option>
+            <option value="remove">ลบ (remove) — ไม่หักวัตถุดิบ default</option>
+          </select>
+        </div>
+
+        <!-- replace: target + replacement -->
+        <div id="ov_replace_fields_${choiceId}">
+          <div class="form-row">
+            <div class="form-group">
+              <label>แทนที่จาก (default ingredient)</label>
+              <select id="ov_target_${choiceId}">
+                <option value="">— เลือกวัตถุดิบ default —</option>
+                ${ingOptions}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>ใช้แทนด้วย</label>
+              <select id="ov_ing_replace_${choiceId}">
+                <option value="">— เลือกวัตถุดิบใหม่ —</option>
+                ${ingOptions}
+              </select>
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:-8px;margin-bottom:8px;">
+            ปริมาณจะใช้เท่าเดิมกับ BOM default โดยอัตโนมัติ
+          </p>
+        </div>
+
+        <!-- add: ingredient + qty -->
+        <div id="ov_add_fields_${choiceId}" style="display:none;">
+          <div class="form-row">
+            <div class="form-group" style="flex:2;">
+              <label>วัตถุดิบที่เพิ่ม</label>
+              <select id="ov_ing_add_${choiceId}" onchange="onOverrideIngChange('${choiceId}')">
+                <option value="">— เลือกวัตถุดิบ —</option>
+                ${ingOptions}
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label>ปริมาณ (<span id="ov_add_unit_${choiceId}">หน่วย</span>)</label>
+              <input type="number" id="ov_qty_${choiceId}" placeholder="0" min="0.001" step="any" />
+            </div>
+          </div>
+        </div>
+
+        <!-- remove: target only -->
+        <div id="ov_remove_fields_${choiceId}" style="display:none;">
+          <div class="form-group">
+            <label>วัตถุดิบที่จะไม่หัก</label>
+            <select id="ov_remove_target_${choiceId}">
+              <option value="">— เลือกวัตถุดิบ default ที่จะข้าม —</option>
+              ${ingOptions}
+            </select>
+          </div>
+        </div>
+
+        <div class="ov-form-actions">
+          <button class="btn btn-ghost btn-sm" onclick="cancelAddForm('${choiceId}')">ยกเลิก</button>
+          <button class="btn btn-primary btn-sm" onclick="saveOverrideRule('${choiceId}')">บันทึก Rule</button>
+        </div>
+      </div>`;
+  }
+
+  function toggleAddForm(choiceId) {
+    // Close previously open form
+    if (activeAddFormId && activeAddFormId !== choiceId) {
+      const prev = document.getElementById('ov_form_' + activeAddFormId);
+      if (prev) prev.style.display = 'none';
+    }
+    const formEl = document.getElementById('ov_form_' + choiceId);
+    if (!formEl) return;
+    const isOpen = formEl.style.display !== 'none';
+    formEl.style.display = isOpen ? 'none' : '';
+    activeAddFormId = isOpen ? null : choiceId;
+  }
+
+  function cancelAddForm(choiceId) {
+    const formEl = document.getElementById('ov_form_' + choiceId);
+    if (formEl) formEl.style.display = 'none';
+    activeAddFormId = null;
+  }
+
+  function onOverrideActionChange(choiceId) {
+    const action = document.getElementById('ov_action_' + choiceId).value;
+    document.getElementById('ov_replace_fields_' + choiceId).style.display = action === 'replace' ? '' : 'none';
+    document.getElementById('ov_add_fields_'     + choiceId).style.display = action === 'add'     ? '' : 'none';
+    document.getElementById('ov_remove_fields_'  + choiceId).style.display = action === 'remove'  ? '' : 'none';
+  }
+
+  function onOverrideIngChange(choiceId) {
+    const ingId = document.getElementById('ov_ing_add_' + choiceId).value;
+    const ing   = ingredients.find(i => i.id === ingId);
+    document.getElementById('ov_add_unit_' + choiceId).textContent = ing ? ing.unit : 'หน่วย';
+  }
+
+  async function saveOverrideRule(choiceId) {
+    const action = document.getElementById('ov_action_' + choiceId).value;
+    let payload  = { choice_id: choiceId, action };
+
+    if (action === 'replace') {
+      const targetId = document.getElementById('ov_target_' + choiceId).value;
+      const ingId    = document.getElementById('ov_ing_replace_' + choiceId).value;
+      if (!targetId || !ingId) { showToast('กรุณาเลือกวัตถุดิบทั้งสองช่อง', true); return; }
+      if (targetId === ingId)  { showToast('วัตถุดิบต้นทาง-ปลายทางต้องไม่ซ้ำกัน', true); return; }
+      payload.target_ingredient_id = targetId;
+      payload.ingredient_id        = ingId;
+      // quantity_used = null → inherit from BOM
+
+    } else if (action === 'add') {
+      const ingId = document.getElementById('ov_ing_add_' + choiceId).value;
+      const qty   = parseFloat(document.getElementById('ov_qty_' + choiceId).value);
+      if (!ingId)          { showToast('กรุณาเลือกวัตถุดิบที่จะเพิ่ม', true); return; }
+      if (isNaN(qty) || qty <= 0) { showToast('กรุณากรอกปริมาณที่ถูกต้อง', true); return; }
+      payload.ingredient_id = ingId;
+      payload.quantity_used = qty;
+
+    } else if (action === 'remove') {
+      const targetId = document.getElementById('ov_remove_target_' + choiceId).value;
+      if (!targetId) { showToast('กรุณาเลือกวัตถุดิบที่จะข้าม', true); return; }
+      payload.target_ingredient_id = targetId;
+    }
+
+    const { data, error } = await supabase
+      .from('bom_option_overrides')
+      .insert(payload)
+      .select(`
+        id, choice_id, action, quantity_used,
+        target_ingredient:target_ingredient_id (id, name, unit),
+        ingredient:ingredient_id (id, name, unit)
+      `)
+      .single();
+
+    if (error) { showToast('บันทึกไม่สำเร็จ: ' + error.message, true); return; }
+
+    // Append rule to local state and re-render that choice block
+    if (!overridesData.overridesByChoiceId[choiceId]) {
+      overridesData.overridesByChoiceId[choiceId] = [];
+    }
+    overridesData.overridesByChoiceId[choiceId].push(data);
+
+    // Update only the rules list + form for this choice (no full re-render)
+    const rulesEl = document.getElementById('ov_rules_' + choiceId);
+    if (rulesEl) {
+      rulesEl.innerHTML = overridesData.overridesByChoiceId[choiceId].map(renderRuleRow).join('');
+    }
+    cancelAddForm(choiceId);
+    showToast('บันทึก rule เรียบร้อย');
+  }
+
+  async function deleteOverrideRule(ruleId, choiceId) {
+    if (!confirm('ลบ rule นี้?')) return;
+
+    const { error } = await supabase
+      .from('bom_option_overrides')
+      .delete()
+      .eq('id', ruleId);
+
+    if (error) { showToast('ลบไม่สำเร็จ: ' + error.message, true); return; }
+
+    // Remove from local state
+    if (overridesData.overridesByChoiceId[choiceId]) {
+      overridesData.overridesByChoiceId[choiceId] =
+        overridesData.overridesByChoiceId[choiceId].filter(r => r.id !== ruleId);
+    }
+
+    const rulesEl = document.getElementById('ov_rules_' + choiceId);
+    if (rulesEl) {
+      rulesEl.innerHTML = (overridesData.overridesByChoiceId[choiceId] || []).map(renderRuleRow).join('');
+    }
+    showToast('ลบ rule เรียบร้อย');
+  }
+
+
+  // ─────────────────────────────────── FORMAT HELPERS
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function escAttr(s) {
+    return String(s).replace(/'/g, "\\'");
+  }
+  function fmtNum(n) {
+    const num = parseFloat(n);
+    return isNaN(num) ? '0' : (Number.isInteger(num) ? num.toString() : num.toFixed(2));
+  }
+  function fmtCost(n) {
+    const num = parseFloat(n);
+    return isNaN(num) ? '0.00' : num.toFixed(2);
+  }
+  function fmtCost4(n) {
+    const num = parseFloat(n);
+    if (isNaN(num) || num === 0) return '0.0000';
+    const a = Math.abs(num);
+    if (a >= 1)       return num.toFixed(2);
+    if (a >= 0.1)     return num.toFixed(3);
+    if (a >= 0.01)    return num.toFixed(4);
+    if (a >= 0.001)   return num.toFixed(5);
+    if (a >= 0.0001)  return num.toFixed(6);
+    if (a >= 0.00001) return num.toFixed(7);
+    return num.toFixed(8);
+  }
+
+
+  // ─────────────────────────────────── BOOT
+  init();
+</script>
+
+</body>
+</html>

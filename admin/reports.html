@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Glongnom Admin — Reports</title>
+  <link rel="stylesheet" href="/css/design-system.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      padding-top: 52px;
+    }
+
+    /* ---- TOPBAR ---- */
+    .topbar {
+      background: var(--surface-warm); border-bottom: 1.5px solid var(--border);
+      box-shadow: var(--shadow-xs); height: 52px; display: flex; align-items: center;
+      padding: 0 16px; position: fixed; top: 0; left: 0; right: 0; z-index: 1100; gap: 12px;
+    }
+    .topbar-hamburger {
+      background: none; border: none; font-size: 20px; cursor: pointer;
+      color: var(--brown-dark); padding: 4px 6px; flex-shrink: 0; line-height: 1;
+    }
+    .topbar-hamburger:hover { color: var(--brown-mid); }
+    .topbar-brand { font-family: 'Sarabun', system-ui, sans-serif; font-weight: 700; font-size: var(--text-base); color: var(--brown-dark); white-space: nowrap; }
+    .topbar-page-label { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }
+    .topbar-spacer { flex: 1; }
+
+    /* ---- SIDEBAR ---- */
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(61,28,2,0.35); z-index: 1150; }
+    .sidebar-backdrop.show { display: block; }
+    #sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 260px; background: var(--surface-warm); border-right: 1.5px solid var(--border); box-shadow: var(--shadow-lg); z-index: 1200; transform: translateX(-100%); transition: transform 0.3s ease; display: flex; flex-direction: column; }
+    #sidebar.open { transform: translateX(0); }
+    .sidebar-header { height: 60px; display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--pink-accent); flex-shrink: 0; }
+    .sidebar-header .sb-brand { font-family: 'Sarabun', system-ui, sans-serif; font-weight: 800; font-size: 16px; color: var(--brown-dark); flex: 1; }
+    .sidebar-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 4px; }
+    .sidebar-close:hover { color: var(--brown-dark); }
+    .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; }
+    .sidebar-nav a { display: block; text-decoration: none; padding: 12px 20px; font-size: 14px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); border-left: 3px solid transparent; transition: background 0.15s, color 0.15s; }
+    .sidebar-nav a:hover { background: var(--surface); color: var(--brown-mid); }
+    .sidebar-nav a.active { background: var(--pink-soft); color: var(--brown-dark); border-left-color: var(--pink-deep); }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+    .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+    .sidebar-user-info { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .sidebar-signout { width: 100%; padding: 9px 14px; border-radius: var(--radius-pill); border: 1.5px solid var(--border); background: none; font-size: 13px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); cursor: pointer; transition: background 0.2s, color 0.2s; }
+    .sidebar-signout:hover { background: var(--error-light); color: var(--error); border-color: var(--error); }
+
+    /* ---- LAYOUT ---- */
+    .container { max-width: 1200px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0; flex-wrap: wrap; gap: var(--space-3); }
+    .page-header h1 { font-size: var(--text-2xl); font-weight: 700; color: var(--text-primary); }
+
+    /* ---- BUTTONS ---- */
+    .btn { padding: 9px 18px; border-radius: var(--radius-pill); border: none; font-size: var(--text-base); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; cursor: pointer; transition: background 0.2s; }
+    .btn-primary       { background: var(--brown-dark); color: #fff; }
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-ghost         { background: var(--surface-warm); color: var(--text-secondary); border: 1.5px solid var(--border); }
+    .btn-ghost:hover   { background: var(--pink-soft); }
+    .btn-sm { padding: 5px 12px; font-size: 13px; }
+
+    /* ---- MAIN TAB BAR ---- */
+    .main-tab-bar {
+      display: flex; gap: 4px;
+      background: var(--surface-warm);
+      border-bottom: 1.5px solid var(--border);
+      padding: 10px 24px 0;
+      position: sticky; top: 52px; z-index: 90;
+      box-shadow: var(--shadow-xs);
+    }
+    .main-tab-btn {
+      padding: 9px 20px; border: none; background: none;
+      font-size: var(--text-base); font-weight: 600;
+      font-family: 'Sarabun', system-ui, sans-serif;
+      color: var(--text-muted); cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -1.5px;
+      transition: color 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .main-tab-btn:hover { color: var(--brown-dark); }
+    .main-tab-btn.active { color: var(--brown-dark); border-bottom-color: var(--pink-deep); }
+
+    /* ---- TAB PANELS ---- */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ---- FILTER BAR ---- */
+    .filter-bar {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: var(--space-5); flex-wrap: wrap;
+    }
+    .filter-bar-right { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .filter-note { font-size: var(--text-xs); color: var(--text-muted); }
+
+    /* ---- PERIOD PICKER (segmented control) ---- */
+    .period-picker { display: flex; gap: 2px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-pill); padding: 3px; }
+    .period-btn { padding: 5px 14px; border-radius: var(--radius-pill); border: none; background: none; font-size: var(--text-sm); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-muted); cursor: pointer; transition: background 0.18s, color 0.18s; white-space: nowrap; }
+    .period-btn.active { background: var(--brown-dark); color: #fff; }
+
+    /* ---- CUSTOM DATE POPOVER ---- */
+    .date-popover-wrap { position: relative; display: inline-block; }
+    .date-popover {
+      display: none; position: absolute; top: calc(100% + 8px); left: 0;
+      background: var(--surface-warm); border: 1.5px solid var(--border);
+      border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+      padding: 16px; min-width: 280px; z-index: 300;
+    }
+    .date-popover.open { display: block; }
+    .date-popover-title { font-size: var(--text-xs); font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .date-range-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+    .date-range-row label { font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+    .date-range-row input[type="date"] { flex: 1; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: var(--text-sm); font-family: 'Sarabun', system-ui, sans-serif; background: var(--surface); color: var(--text-primary); outline: none; }
+    .date-range-row input[type="date"]:focus { border-color: var(--pink-deep); box-shadow: 0 0 0 2px rgba(255,133,161,0.18); }
+    .date-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .preset-btn { padding: 4px 10px; border-radius: var(--radius-pill); border: 1.5px solid var(--border); background: var(--surface); font-size: var(--text-xs); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); cursor: pointer; transition: background 0.15s; }
+    .preset-btn:hover { background: var(--pink-soft); color: var(--brown-dark); }
+    .date-popover-apply { width: 100%; padding: 8px; border-radius: var(--radius-pill); border: none; background: var(--brown-dark); color: #fff; font-size: var(--text-sm); font-weight: 700; font-family: 'Sarabun', system-ui, sans-serif; cursor: pointer; }
+    .date-popover-apply:hover { background: var(--brown-mid); }
+
+    /* ---- FILTER INPUTS ---- */
+    .filter-select, .filter-input {
+      padding: 7px 12px; border: 1.5px solid var(--border);
+      border-radius: var(--radius-pill); font-size: var(--text-sm);
+      font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--surface); color: var(--text-primary); outline: none;
+      transition: border-color 0.2s;
+    }
+    .filter-select:focus, .filter-input:focus { border-color: var(--pink-deep); }
+    .filter-input { min-width: 200px; }
+
+    /* ---- TABLE ---- */
+    .table-wrap { background: var(--surface); border-radius: var(--radius-md); border: 1.5px solid var(--border); overflow-x: auto; box-shadow: var(--shadow-sm); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      background: var(--surface-warm); padding: var(--space-3) var(--space-4); text-align: left;
+      font-size: var(--text-xs); font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1.5px solid var(--border);
+      white-space: nowrap;
+    }
+    thead th.sortable { cursor: pointer; user-select: none; }
+    thead th.sortable:hover { color: var(--brown-dark); }
+    thead th .sort-arrow { margin-left: 4px; opacity: 0.4; font-style: normal; }
+    thead th.sort-active .sort-arrow { opacity: 1; color: var(--pink-deep); }
+    tbody td { padding: 13px var(--space-4); font-size: var(--text-base); border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--pink-soft); }
+
+    /* ---- SUMMARY ROW (sticky bottom of table area) ---- */
+    .summary-row {
+      display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
+      padding: 12px var(--space-4);
+      background: var(--surface-warm);
+      border: 1.5px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
+      font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600;
+    }
+    .summary-row .sum-val { color: var(--text-primary); font-weight: 700; }
+    .summary-divider { width: 1px; height: 16px; background: var(--border); }
+
+    /* ---- PAGINATION ---- */
+    .pagination {
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; padding: var(--space-4) 0; margin-top: var(--space-3);
+    }
+    .pagination-label { font-size: var(--text-sm); color: var(--text-muted); }
+
+    /* ---- STATUS & PAYMENT BADGES ---- */
+    .badge {
+      display: inline-flex; align-items: center; border-radius: var(--radius-pill);
+      padding: 3px 10px; font-size: var(--text-xs); font-weight: 700; white-space: nowrap;
+    }
+    /* Order status */
+    .badge-new        { background: #fffbeb; color: #92400e; }
+    .badge-preparing  { background: #dbeafe; color: #1d4ed8; }
+    .badge-ready      { background: #d1fae5; color: #065f46; }
+    .badge-served     { background: #f3f4f6; color: #6b7280; }
+    .badge-cancelled  { background: #fee2e2; color: #b91c1c; }
+    /* Payment status */
+    .badge-pending    { background: #fffbeb; color: #92400e; }
+    .badge-paid       { background: #d1fae5; color: #065f46; }
+    .badge-refunded   { background: #fce7f3; color: #be185d; }
+    /* Order type */
+    .badge-delivery   { background: #ede9fe; color: #5b21b6; }
+    .badge-pickup     { background: #e0f2fe; color: #0369a1; }
+    .badge-dine_in    { background: #fef3c7; color: #92400e; }
+    /* Stock status */
+    .badge-ok         { background: #d1fae5; color: #065f46; }
+    .badge-low        { background: #fffbeb; color: #92400e; }
+    .badge-critical   { background: #fee2e2; color: #b91c1c; }
+
+    /* ---- FC% COLOR ---- */
+    .fc-green { color: #16a34a; font-weight: 700; }
+    .fc-amber { color: #92400e; font-weight: 700; }
+    .fc-red   { color: #b91c1c; font-weight: 700; }
+    .fc-muted { color: var(--text-muted); }
+
+    /* ---- EMPTY STATE ---- */
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: var(--text-sm); }
+    .empty-state span { font-size: 32px; display: block; margin-bottom: var(--space-3); }
+
+    /* ---- TOAST ---- */
+    .toast { position: fixed; bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); right: var(--space-6); background: var(--brown-dark); color: #fff; padding: var(--space-3) var(--space-5); border-radius: var(--radius-pill); font-size: var(--text-base); z-index: 9999; opacity: 0; transform: translateY(12px); transition: all 0.3s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { background: var(--error); }
+
+    /* ---- RESPONSIVE ---- */
+    @media (max-width: 700px) {
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      .filter-bar-right { margin-left: 0; }
+      .filter-input { min-width: unset; width: 100%; }
+      .period-picker { overflow-x: auto; }
+      .main-tab-bar { overflow-x: auto; }
+    }
+
+    /* PHONE (~375-430px) */
+    @media (max-width: 640px) {
+      .main-tab-btn { padding: 9px 14px; font-size: 13px; }
+      .topbar-page-label { display: none; }
+      .date-popover { min-width: unset; width: calc(100vw - 64px); max-width: 320px; }
+      .summary-row { flex-wrap: wrap; }
+      .pagination { flex-wrap: wrap; gap: 8px; justify-content: center; }
+      .table-wrap thead th, .table-wrap tbody td { padding: 10px 8px; font-size: 13px; }
+
+      /* Sales table — keep Date & Time / Order # / Customer / Total / Status */
+      #panel-sales table th:nth-child(4), #panel-sales table td:nth-child(4),
+      #panel-sales table th:nth-child(5), #panel-sales table td:nth-child(5),
+      #panel-sales table th:nth-child(6), #panel-sales table td:nth-child(6),
+      #panel-sales table th:nth-child(7), #panel-sales table td:nth-child(7),
+      #panel-sales table th:nth-child(10), #panel-sales table td:nth-child(10) { display: none; }
+
+      /* Menu & Options table — keep Menu Item / Qty Sold / Revenue / FC% */
+      #panel-menu table th:nth-child(1), #panel-menu table td:nth-child(1),
+      #panel-menu table th:nth-child(3), #panel-menu table td:nth-child(3),
+      #panel-menu table th:nth-child(6), #panel-menu table td:nth-child(6),
+      #panel-menu table th:nth-child(7), #panel-menu table td:nth-child(7),
+      #panel-menu table th:nth-child(9), #panel-menu table td:nth-child(9) { display: none; }
+
+      /* Inventory table — keep Ingredient / Current Stock / Status / Stock Value */
+      #panel-inventory table th:nth-child(2), #panel-inventory table td:nth-child(2),
+      #panel-inventory table th:nth-child(4), #panel-inventory table td:nth-child(4),
+      #panel-inventory table th:nth-child(6), #panel-inventory table td:nth-child(6),
+      #panel-inventory table th:nth-child(7), #panel-inventory table td:nth-child(7),
+      #panel-inventory table th:nth-child(8), #panel-inventory table td:nth-child(8),
+      #panel-inventory table th:nth-child(9), #panel-inventory table td:nth-child(9) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <button class="topbar-hamburger" onclick="openSidebar()" aria-label="Open menu">&#9776;</button>
+  <span class="topbar-brand">Glongnom POS</span>
+  <span class="topbar-page-label">/ Reports</span>
+  <div class="topbar-spacer"></div>
+</div>
+
+<!-- Sidebar Backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<!-- Sidebar Drawer -->
+<aside id="sidebar" role="navigation" aria-label="Admin navigation">
+  <div class="sidebar-header">
+    <span class="sb-brand">Glongnom POS</span>
+    <button class="sidebar-close" onclick="closeSidebar()" aria-label="Close menu">&times;</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-group-label">Management</div>
+    <a href="/admin/orders.html">&#129534; Order Queue</a>
+    <a href="/admin/">&#128203; Menu Management</a>
+    <a href="/admin/options.html">&#9881;&#65039; Options</a>
+    <a href="/admin/customers.html">&#127919; Customers</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Inventory</div>
+    <a href="/admin/inventory.html">&#128230; Inventory</a>
+    <a href="/admin/suppliers.html">&#128666; Suppliers</a>
+    <a href="/admin/purchase-orders.html">&#128722; Purchases</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Analysis</div>
+    <a href="/admin/dashboard.html">&#128202; Dashboard</a>
+    <a href="/admin/reports.html" class="active">&#128202; Reports</a>
+    <a href="/admin/accounting.html">&#128210; Accounting</a>
+    <a href="/admin/finance.html">&#128200; Finance</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Setting</div>
+    <a href="/admin/users.html">&#128101; Staff</a>
+    <a href="/admin/printer.html">&#128424;&#65039; Printers</a>
+  </nav>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user-info" id="sidebarUserInfo">Loading…</div>
+    <button class="sidebar-signout" onclick="Auth.signOut()">Sign Out</button>
+  </div>
+</aside>
+
+<!-- Main Tab Bar -->
+<div class="main-tab-bar">
+  <button class="main-tab-btn active" onclick="switchMainTab('sales')" id="tabBtnSales">&#128202; Sales</button>
+  <button class="main-tab-btn" onclick="switchMainTab('menu')" id="tabBtnMenu">&#127861; Menu &amp; Options</button>
+  <button class="main-tab-btn" onclick="switchMainTab('inventory')" id="tabBtnInventory">&#128230; Inventory</button>
+</div>
+
+<!-- ══════════════════════════════════════════════ MAIN CONTENT -->
+<div class="container">
+
+  <!-- ══════════════════ TAB 1: SALES -->
+  <div class="tab-panel active" id="panel-sales">
+
+    <!-- Filter Bar -->
+    <div class="filter-bar" style="margin-top: var(--space-5);">
+      <!-- Period Picker -->
+      <div class="date-popover-wrap" id="salesPopoverWrap">
+        <div class="period-picker">
+          <button class="period-btn" data-period="today" onclick="setPeriod('sales','today',this)">Today</button>
+          <button class="period-btn active" data-period="7d"   onclick="setPeriod('sales','7d',this)">Last 7d</button>
+          <button class="period-btn" data-period="30d"  onclick="setPeriod('sales','30d',this)">Last 30d</button>
+          <button class="period-btn" data-period="custom" id="salesCustomBtn" onclick="toggleCustomPopover('sales',this)">Custom</button>
+        </div>
+        <div class="date-popover" id="salesDatePopover">
+          <div class="date-popover-title">Custom Date Range</div>
+          <div class="date-range-row">
+            <label>From</label>
+            <input type="date" id="salesFromDate" />
+          </div>
+          <div class="date-range-row">
+            <label>To</label>
+            <input type="date" id="salesToDate" />
+          </div>
+          <div class="date-presets">
+            <button class="preset-btn" onclick="applyPreset('sales',7)">Last 7d</button>
+            <button class="preset-btn" onclick="applyPreset('sales',14)">Last 14d</button>
+            <button class="preset-btn" onclick="applyPreset('sales',30)">Last 30d</button>
+            <button class="preset-btn" onclick="applyPreset('sales',90)">Last 90d</button>
+          </div>
+          <button class="date-popover-apply" onclick="applyCustomPeriod('sales')">Apply</button>
+        </div>
+      </div>
+
+      <!-- Order Type -->
+      <select class="filter-select" id="salesOrderType" onchange="onSalesFilterChange()">
+        <option value="all">All Types</option>
+        <option value="delivery">Delivery</option>
+        <option value="pickup">Pickup</option>
+        <option value="dine_in">Dine-in</option>
+      </select>
+
+      <!-- Payment Status -->
+      <select class="filter-select" id="salesPaymentStatus" onchange="onSalesFilterChange()">
+        <option value="all">All Statuses</option>
+        <option value="pending">Pending</option>
+        <option value="paid">Paid</option>
+        <option value="refunded">Refunded</option>
+      </select>
+
+      <!-- Search -->
+      <input class="filter-input" type="text" id="salesSearch" placeholder="Search by order #…" oninput="debounce('sales', onSalesFilterChange)" />
+
+      <div class="filter-bar-right">
+        <span class="filter-note">Sorting applies to current page</span>
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV('sales')">&#8595; Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap" id="salesTableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="sortable" onclick="sortTable('sales','created_at')">Date &amp; Time <em class="sort-arrow" id="sarr-created_at">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('sales','order_no')">Order # <em class="sort-arrow" id="sarr-order_no">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('sales','customer_name')">Customer <em class="sort-arrow" id="sarr-customer_name">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('sales','order_type')">Type <em class="sort-arrow" id="sarr-order_type">&#8597;</em></th>
+            <th>Items</th>
+            <th class="sortable" onclick="sortTable('sales','subtotal')">Subtotal <em class="sort-arrow" id="sarr-subtotal">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('sales','delivery_fee')">Delivery <em class="sort-arrow" id="sarr-delivery_fee">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('sales','total_price')">Total <em class="sort-arrow" id="sarr-total_price">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('sales','status')">Status <em class="sort-arrow" id="sarr-status">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('sales','payment_status')">Payment <em class="sort-arrow" id="sarr-payment_status">&#8597;</em></th>
+          </tr>
+        </thead>
+        <tbody id="salesTableBody">
+          <tr><td colspan="10"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="10"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="10"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="10"><div class="skeleton skeleton-row"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Summary Row -->
+    <div class="summary-row" id="salesSummaryRow">
+      <span>— orders</span>
+      <div class="summary-divider"></div>
+      <span>฿— total revenue</span>
+      <div class="summary-divider"></div>
+      <span>— cancelled</span>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <button class="btn btn-ghost btn-sm" id="salesPrevBtn" onclick="salesChangePage(-1)" disabled>&#8592; Prev</button>
+      <span class="pagination-label" id="salesPageLabel">Page 1 of 1</span>
+      <button class="btn btn-ghost btn-sm" id="salesNextBtn" onclick="salesChangePage(1)" disabled>Next &#8594;</button>
+    </div>
+
+  </div><!-- /panel-sales -->
+
+
+  <!-- ══════════════════ TAB 2: MENU & OPTIONS -->
+  <div class="tab-panel" id="panel-menu">
+
+    <!-- Filter Bar -->
+    <div class="filter-bar" style="margin-top: var(--space-5);">
+      <div class="date-popover-wrap" id="menuPopoverWrap">
+        <div class="period-picker">
+          <button class="period-btn" data-period="today" onclick="setPeriod('menu','today',this)">Today</button>
+          <button class="period-btn active" data-period="7d"   onclick="setPeriod('menu','7d',this)">Last 7d</button>
+          <button class="period-btn" data-period="30d"  onclick="setPeriod('menu','30d',this)">Last 30d</button>
+          <button class="period-btn" data-period="custom" id="menuCustomBtn" onclick="toggleCustomPopover('menu',this)">Custom</button>
+        </div>
+        <div class="date-popover" id="menuDatePopover">
+          <div class="date-popover-title">Custom Date Range</div>
+          <div class="date-range-row">
+            <label>From</label>
+            <input type="date" id="menuFromDate" />
+          </div>
+          <div class="date-range-row">
+            <label>To</label>
+            <input type="date" id="menuToDate" />
+          </div>
+          <div class="date-presets">
+            <button class="preset-btn" onclick="applyPreset('menu',7)">Last 7d</button>
+            <button class="preset-btn" onclick="applyPreset('menu',14)">Last 14d</button>
+            <button class="preset-btn" onclick="applyPreset('menu',30)">Last 30d</button>
+            <button class="preset-btn" onclick="applyPreset('menu',90)">Last 90d</button>
+          </div>
+          <button class="date-popover-apply" onclick="applyCustomPeriod('menu')">Apply</button>
+        </div>
+      </div>
+
+      <!-- Category -->
+      <select class="filter-select" id="menuCategory" onchange="onMenuFilterChange()">
+        <option value="all">All Categories</option>
+      </select>
+
+      <!-- Search -->
+      <input class="filter-input" type="text" id="menuSearch" placeholder="Search menu item…" oninput="debounce('menu', onMenuFilterChange)" />
+
+      <div class="filter-bar-right">
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV('menu')">&#8595; Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th class="sortable" onclick="sortTable('menu','menu_name')">Menu Item <em class="sort-arrow" id="marr-menu_name">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('menu','category_name')">Category <em class="sort-arrow" id="marr-category_name">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('menu','qty_sold')">Qty Sold <em class="sort-arrow" id="marr-qty_sold">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('menu','revenue')">Revenue <em class="sort-arrow" id="marr-revenue">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('menu','avg_unit_price')">Avg Price <em class="sort-arrow" id="marr-avg_unit_price">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('menu','recipe_cost')">Recipe Cost <em class="sort-arrow" id="marr-recipe_cost">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('menu','fc_pct')">FC% <em class="sort-arrow" id="marr-fc_pct">&#8597;</em></th>
+            <th>Top Choice</th>
+          </tr>
+        </thead>
+        <tbody id="menuTableBody">
+          <tr><td colspan="9"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="9"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="9"><div class="skeleton skeleton-row"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Summary Row -->
+    <div class="summary-row" id="menuSummaryRow">
+      <span>— items</span>
+      <div class="summary-divider"></div>
+      <span>— qty sold</span>
+      <div class="summary-divider"></div>
+      <span>฿— total revenue</span>
+    </div>
+
+  </div><!-- /panel-menu -->
+
+
+  <!-- ══════════════════ TAB 3: INVENTORY -->
+  <div class="tab-panel" id="panel-inventory">
+
+    <!-- Filter Bar -->
+    <div class="filter-bar" style="margin-top: var(--space-5);">
+      <div class="date-popover-wrap" id="invPopoverWrap">
+        <div class="period-picker">
+          <button class="period-btn" data-period="today" onclick="setPeriod('inv','today',this)">Today</button>
+          <button class="period-btn active" data-period="7d"   onclick="setPeriod('inv','7d',this)">Last 7d</button>
+          <button class="period-btn" data-period="30d"  onclick="setPeriod('inv','30d',this)">Last 30d</button>
+          <button class="period-btn" data-period="custom" id="invCustomBtn" onclick="toggleCustomPopover('inv',this)">Custom</button>
+        </div>
+        <div class="date-popover" id="invDatePopover">
+          <div class="date-popover-title">Custom Date Range</div>
+          <div class="date-range-row">
+            <label>From</label>
+            <input type="date" id="invFromDate" />
+          </div>
+          <div class="date-range-row">
+            <label>To</label>
+            <input type="date" id="invToDate" />
+          </div>
+          <div class="date-presets">
+            <button class="preset-btn" onclick="applyPreset('inv',7)">Last 7d</button>
+            <button class="preset-btn" onclick="applyPreset('inv',14)">Last 14d</button>
+            <button class="preset-btn" onclick="applyPreset('inv',30)">Last 30d</button>
+            <button class="preset-btn" onclick="applyPreset('inv',90)">Last 90d</button>
+          </div>
+          <button class="date-popover-apply" onclick="applyCustomPeriod('inv')">Apply</button>
+        </div>
+      </div>
+
+      <!-- Status filter -->
+      <select class="filter-select" id="invStatus" onchange="onInvFilterChange()">
+        <option value="all">All Status</option>
+        <option value="low">Low Stock</option>
+        <option value="critical">Critical</option>
+      </select>
+
+      <!-- Search -->
+      <input class="filter-input" type="text" id="invSearch" placeholder="Search ingredient…" oninput="debounce('inv', onInvFilterChange)" />
+
+      <div class="filter-bar-right">
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV('inv')">&#8595; Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="sortable" onclick="sortTable('inv','name')">Ingredient <em class="sort-arrow" id="iarr-name">&#8597;</em></th>
+            <th>Unit</th>
+            <th class="sortable" onclick="sortTable('inv','current_stock')">Current Stock <em class="sort-arrow" id="iarr-current_stock">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('inv','reorder_level')">Reorder Level <em class="sort-arrow" id="iarr-reorder_level">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('inv','status_badge')">Status <em class="sort-arrow" id="iarr-status_badge">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('inv','total_deducted')">Deducted <em class="sort-arrow" id="iarr-total_deducted">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('inv','total_restocked')">Restocked <em class="sort-arrow" id="iarr-total_restocked">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('inv','total_wastage')">Wastage <em class="sort-arrow" id="iarr-total_wastage">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('inv','cost_per_unit')">Cost/Unit <em class="sort-arrow" id="iarr-cost_per_unit">&#8597;</em></th>
+            <th class="sortable" onclick="sortTable('inv','stock_value')">Stock Value <em class="sort-arrow" id="iarr-stock_value">&#8597;</em></th>
+          </tr>
+        </thead>
+        <tbody id="invTableBody">
+          <tr><td colspan="10"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="10"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="10"><div class="skeleton skeleton-row"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Summary Row -->
+    <div class="summary-row" id="invSummaryRow">
+      <span>฿— stock value</span>
+      <div class="summary-divider"></div>
+      <span>— units deducted</span>
+      <div class="summary-divider"></div>
+      <span>— units wasted</span>
+      <div class="summary-divider"></div>
+      <span>— critical, — low</span>
+    </div>
+
+  </div><!-- /panel-inventory -->
+
+</div><!-- /container -->
+
+<div class="toast" id="toast"></div>
+
+
+<!-- ══════════════════════════════════════════════ SCRIPTS -->
+<script>
+
+// ─────────────────────────────────── SIDEBAR
+function openSidebar()  {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarBackdrop').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+// ─────────────────────────────────── TOAST
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.toggle('error', isError);
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ─────────────────────────────────── FORMAT HELPERS
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function toISO(d) {
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
+}
+// Convert a local-date string to UTC ISO timestamp at start or end of that local day.
+// Fixes timezone bug: 'YYYY-MM-DDT00:00:00' without TZ is treated as UTC by Supabase,
+// but getFullYear/Month/Date give LOCAL (Bangkok) date — converting via Date constructor
+// ensures Bangkok midnight maps to the correct UTC value.
+function toUtcISO(dateStr, endOfDay = false) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = endOfDay
+    ? new Date(y, m - 1, d, 23, 59, 59, 999)
+    : new Date(y, m - 1, d, 0, 0, 0, 0);
+  return dt.toISOString();
+}
+function periodDates(period, customFrom, customTo) {
+  const today = new Date();
+  const todayStr = toISO(today);
+  if (period === 'today')  return { from: todayStr, to: todayStr };
+  if (period === '7d')     { const f = new Date(today); f.setDate(today.getDate()-6);  return { from: toISO(f), to: todayStr }; }
+  if (period === '30d')    { const f = new Date(today); f.setDate(today.getDate()-29); return { from: toISO(f), to: todayStr }; }
+  if (period === 'custom') return { from: customFrom, to: customTo };
+  return { from: todayStr, to: todayStr };
+}
+function fmtDate(isoStr) {
+  if (!isoStr) return '—';
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'2-digit' })
+    + ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+}
+function fmtMoney(n) { return '฿' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtNum(n, dec = 2) {
+  const v = Number(n || 0);
+  return Number.isInteger(v) ? v.toString() : v.toFixed(dec);
+}
+
+// ─────────────────────────────────── DEBOUNCE
+const _debounceTimers = {};
+function debounce(key, fn, delay = 400) {
+  clearTimeout(_debounceTimers[key]);
+  _debounceTimers[key] = setTimeout(fn, delay);
+}
+
+// ─────────────────────────────────── BADGE HELPERS
+function orderStatusBadge(status) {
+  const map = { new: 'badge-new', preparing: 'badge-preparing', ready: 'badge-ready', served: 'badge-served', cancelled: 'badge-cancelled' };
+  const label = { new: 'New', preparing: 'Preparing', ready: 'Ready', served: 'Served', cancelled: 'Cancelled' };
+  return `<span class="badge ${map[status] || ''}">${label[status] || escHtml(status)}</span>`;
+}
+function paymentStatusBadge(status) {
+  const map = { pending: 'badge-pending', paid: 'badge-paid', refunded: 'badge-refunded' };
+  const label = { pending: 'Pending', paid: 'Paid', refunded: 'Refunded' };
+  return `<span class="badge ${map[status] || ''}">${label[status] || escHtml(status)}</span>`;
+}
+function orderTypeBadge(type) {
+  const map = { delivery: 'badge-delivery', pickup: 'badge-pickup', dine_in: 'badge-dine_in' };
+  const label = { delivery: 'Delivery', pickup: 'Pickup', dine_in: 'Dine-in' };
+  return `<span class="badge ${map[type] || ''}">${label[type] || escHtml(type)}</span>`;
+}
+function stockStatusBadge(status) {
+  const map = { ok: 'badge-ok', low: 'badge-low', critical: 'badge-critical' };
+  const label = { ok: 'OK', low: 'Low', critical: 'Critical' };
+  return `<span class="badge ${map[status] || ''}">${label[status] || escHtml(status)}</span>`;
+}
+function fcPctHtml(pct) {
+  if (pct === null || pct === undefined) return '<span class="fc-muted">—</span>';
+  const cls = pct <= 30 ? 'fc-green' : pct <= 35 ? 'fc-amber' : 'fc-red';
+  return `<span class="${cls}">${pct.toFixed(1)}%</span>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DATA QUERY LAYER (as specified — do not modify)
+// ═══════════════════════════════════════════════════════════════
+const REPORT_QUERIES = {
+  sales: {
+    async fetchOrders({ fromDate, toDate, filters = {}, page = 0, pageSize = 50 }) {
+      const { orderType, paymentStatus, search } = filters;
+      const fromDatetime = toUtcISO(fromDate);
+      const toDatetime   = toUtcISO(toDate, true);
+      let query = window.supabase
+        .from('orders')
+        .select(`id, order_no, order_type, status, payment_status, subtotal, delivery_fee, total_price, note, created_at,
+          customers!customer_id(id, name, phone),
+          order_items(id, qty, unit_price, menus(id, name))`,
+          { count: 'exact' })
+        .gte('created_at', fromDatetime)
+        .lte('created_at', toDatetime)
+        .order('created_at', { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+      if (orderType && orderType !== 'all') query = query.eq('order_type', orderType);
+      if (paymentStatus && paymentStatus !== 'all') query = query.eq('payment_status', paymentStatus);
+      if (search && search.trim()) query = query.ilike('order_no', `%${search.trim()}%`);
+      const { data, count, error } = await query;
+      if (error) return { data: [], count: 0, error };
+      const rows = (data || []).map(order => ({
+        id: order.id, order_no: order.order_no, created_at: order.created_at,
+        customer_name: order.customers?.name ?? '—', customer_phone: order.customers?.phone ?? '',
+        order_type: order.order_type, status: order.status, payment_status: order.payment_status,
+        subtotal: order.subtotal, delivery_fee: order.delivery_fee, total_price: order.total_price,
+        note: order.note,
+        items_summary: (order.order_items || []).map(i => `${i.menus?.name ?? 'Unknown'} ×${i.qty}`).join(', ') || '—',
+      }));
+      return { data: rows, count: count ?? 0, error: null };
+    },
+    async fetchSummary({ fromDate, toDate, filters = {} }) {
+      const { orderType, paymentStatus, search } = filters;
+      const fromDatetime = toUtcISO(fromDate);
+      const toDatetime   = toUtcISO(toDate, true);
+      let query = window.supabase.from('orders')
+        .select('id, status, total_price, customers(name)')
+        .gte('created_at', fromDatetime).lte('created_at', toDatetime);
+      if (orderType && orderType !== 'all') query = query.eq('order_type', orderType);
+      if (paymentStatus && paymentStatus !== 'all') query = query.eq('payment_status', paymentStatus);
+      if (search && search.trim()) query = query.ilike('order_no', `%${search.trim()}%`);
+      const { data, error } = await query;
+      if (error) return { totalOrders: 0, totalRevenue: 0, cancelledOrders: 0, error };
+      return (data || []).reduce((acc, o) => {
+        acc.totalOrders++;
+        if (o.status !== 'cancelled') acc.totalRevenue += Number(o.total_price) || 0;
+        else acc.cancelledOrders++;
+        return acc;
+      }, { totalOrders: 0, totalRevenue: 0, cancelledOrders: 0, error: null });
+    },
+  },
+
+  menuOptions: {
+    async fetchMenuPerformance({ fromDate, toDate, filters = {} }) {
+      const { categoryId, search } = filters;
+      const fromDatetime = toUtcISO(fromDate);
+      const toDatetime   = toUtcISO(toDate, true);
+
+      // order_items has no created_at — filter by orders in period first, then join
+      const { data: periodOrders, error: periodErr } = await window.supabase
+        .from('orders')
+        .select('id')
+        .gte('created_at', fromDatetime)
+        .lte('created_at', toDatetime)
+        .neq('status', 'cancelled');
+      if (periodErr) return { data: [], totals: {}, error: periodErr };
+      const periodOrderIds = (periodOrders || []).map(o => o.id);
+      if (periodOrderIds.length === 0) return { data: [], totals: { totalQty: 0, totalRevenue: 0 }, error: null };
+
+      let itemsQuery = window.supabase.from('order_items')
+        .select(`id, order_id, menu_id, qty, unit_price,
+          menus(id, name, category_id, base_price, categories(id, name))`)
+        .in('order_id', periodOrderIds);
+      if (categoryId && categoryId !== 'all') itemsQuery = itemsQuery.eq('menus.category_id', categoryId);
+      const { data: itemRows, error: itemsError } = await itemsQuery;
+      if (itemsError) return { data: [], totals: {}, error: itemsError };
+      const menuIdSet = new Set((itemRows || []).map(r => r.menu_id));
+      const menuIds = [...menuIdSet];
+      if (menuIds.length === 0) return { data: [], totals: { totalQty: 0, totalRevenue: 0 }, error: null };
+      const [bomResult, optionsResult] = await Promise.all([
+        this._fetchBomCosts(menuIds),
+        this._fetchTopOptions((itemRows || []).map(r => r.id)),
+      ]);
+      const menuMap = {};
+      for (const item of (itemRows || [])) {
+        const menu = item.menus;
+        if (!menu) continue;
+        if (search && search.trim() && !menu.name.toLowerCase().includes(search.trim().toLowerCase())) continue;
+        if (!menuMap[item.menu_id]) {
+          menuMap[item.menu_id] = { menu_id: item.menu_id, menu_name: menu.name,
+            category_name: menu.categories?.name ?? '—', qty_sold: 0, revenue: 0,
+            base_price: Number(menu.base_price) || 0, unit_prices: [] };
+        }
+        const agg = menuMap[item.menu_id];
+        agg.qty_sold += Number(item.qty) || 0;
+        agg.revenue  += (Number(item.qty) || 0) * (Number(item.unit_price) || 0);
+        agg.unit_prices.push(Number(item.unit_price));
+      }
+      const bomByMenu    = bomResult.data    || {};
+      const optionByMenu = optionsResult.data || {};
+      let rank = 1;
+      const rows = Object.values(menuMap).sort((a, b) => b.qty_sold - a.qty_sold).map(row => {
+        const recipe_cost    = bomByMenu[row.menu_id] ?? null;
+        const avg_unit_price = row.unit_prices.length > 0
+          ? row.unit_prices.reduce((s, p) => s + p, 0) / row.unit_prices.length : row.base_price;
+        const fc_pct = (recipe_cost !== null && avg_unit_price > 0)
+          ? (recipe_cost / avg_unit_price) * 100 : null;
+        return { rank: rank++, menu_id: row.menu_id, menu_name: row.menu_name,
+          category_name: row.category_name, qty_sold: row.qty_sold, revenue: row.revenue,
+          avg_unit_price, recipe_cost, fc_pct, top_option: optionByMenu[row.menu_id] ?? '—' };
+      });
+      const totals = rows.reduce((acc, r) => { acc.totalQty += r.qty_sold; acc.totalRevenue += r.revenue; return acc; },
+        { totalQty: 0, totalRevenue: 0 });
+      return { data: rows, totals, error: null };
+    },
+    async _fetchBomCosts(menuIds) {
+      const { data, error } = await window.supabase.from('recipe_bom')
+        .select('menu_id, quantity_used, ingredients(cost_per_unit)').in('menu_id', menuIds);
+      if (error) return { data: {}, error };
+      const costMap = (data || []).reduce((acc, bom) => {
+        const cost = (Number(bom.quantity_used) || 0) * (Number(bom.ingredients?.cost_per_unit) || 0);
+        acc[bom.menu_id] = (acc[bom.menu_id] || 0) + cost;
+        return acc;
+      }, {});
+      return { data: costMap, error: null };
+    },
+    async _fetchTopOptions(orderItemIds) {
+      if (orderItemIds.length === 0) return { data: {}, error: null };
+      const { data, error } = await window.supabase.from('order_item_options')
+        .select('order_item_id, choice_name, order_items!inner(menu_id)')
+        .in('order_item_id', orderItemIds);
+      if (error) return { data: {}, error };
+      const freqMap = {};
+      for (const opt of (data || [])) {
+        const menuId = opt.order_items?.menu_id;
+        if (!menuId) continue;
+        if (!freqMap[menuId]) freqMap[menuId] = {};
+        freqMap[menuId][opt.choice_name] = (freqMap[menuId][opt.choice_name] || 0) + 1;
+      }
+      const topMap = {};
+      for (const [menuId, choices] of Object.entries(freqMap)) {
+        const top = Object.entries(choices).sort((a, b) => b[1] - a[1])[0];
+        topMap[menuId] = `${top[0]} (${top[1]})`;
+      }
+      return { data: topMap, error: null };
+    },
+    async fetchCategories() {
+      const { data, error } = await window.supabase.from('categories')
+        .select('id, name').eq('is_active', true).order('sort_order', { ascending: true });
+      return { data: data || [], error };
+    },
+  },
+
+  inventory: {
+    async fetchInventory({ fromDate, toDate, filters = {} }) {
+      const { statusFilter, search } = filters;
+      const fromDatetime = toUtcISO(fromDate);
+      const toDatetime   = toUtcISO(toDate, true);
+      const [ingredientsResult, deductionsResult, adjustmentsResult] = await Promise.all([
+        window.supabase.from('ingredients')
+          .select('id, name, unit, current_stock, reorder_level, cost_per_unit, is_active')
+          .eq('is_active', true).order('name', { ascending: true }),
+        window.supabase.from('inventory_deductions')
+          .select('ingredient_id, quantity_deducted')
+          .gte('deducted_at', fromDatetime).lte('deducted_at', toDatetime),
+        window.supabase.from('inventory_adjustments')
+          .select('ingredient_id, delta, adjustment_type')
+          .gte('created_at', fromDatetime).lte('created_at', toDatetime),
+      ]);
+      const firstError = ingredientsResult.error || deductionsResult.error || adjustmentsResult.error;
+      if (firstError) return { data: [], totals: {}, error: firstError };
+      const deductionMap = (deductionsResult.data || []).reduce((acc, row) => {
+        acc[row.ingredient_id] = (acc[row.ingredient_id] || 0) + (Number(row.quantity_deducted) || 0);
+        return acc;
+      }, {});
+      const adjustmentMap = (adjustmentsResult.data || []).reduce((acc, row) => {
+        if (!acc[row.ingredient_id]) acc[row.ingredient_id] = { restocked: 0, wastage: 0 };
+        const delta = Number(row.delta) || 0;
+        if (delta > 0) acc[row.ingredient_id].restocked += delta;
+        else if (delta < 0 && row.adjustment_type === 'wastage') acc[row.ingredient_id].wastage += Math.abs(delta);
+        return acc;
+      }, {});
+      let rows = (ingredientsResult.data || []).map(ing => {
+        const stock = Number(ing.current_stock) || 0;
+        const reorder = Number(ing.reorder_level) || 0;
+        const costPerUnit = Number(ing.cost_per_unit) || 0;
+        const status_badge = stock <= 0 ? 'critical' : stock < reorder ? 'low' : 'ok';
+        const adj = adjustmentMap[ing.id] || { restocked: 0, wastage: 0 };
+        return { id: ing.id, name: ing.name, unit: ing.unit, current_stock: stock,
+          reorder_level: reorder, status_badge, total_deducted: deductionMap[ing.id] || 0,
+          total_restocked: adj.restocked, total_wastage: adj.wastage,
+          cost_per_unit: costPerUnit, stock_value: stock * costPerUnit };
+      });
+      if (statusFilter && statusFilter !== 'all') rows = rows.filter(r => r.status_badge === statusFilter);
+      if (search && search.trim()) {
+        const term = search.trim().toLowerCase();
+        rows = rows.filter(r => r.name.toLowerCase().includes(term));
+      }
+      const totals = rows.reduce((acc, r) => {
+        acc.totalStockValue += r.stock_value; acc.totalDeducted += r.total_deducted;
+        acc.totalWastage += r.total_wastage;
+        if (r.status_badge === 'low') acc.lowCount++;
+        if (r.status_badge === 'critical') acc.criticalCount++;
+        return acc;
+      }, { totalStockValue: 0, totalDeducted: 0, totalWastage: 0, lowCount: 0, criticalCount: 0 });
+      return { data: rows, totals, error: null };
+    },
+  },
+};
+
+
+// ═══════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════
+const state = {
+  activeTab: 'sales',
+
+  // Per-tab period state
+  sales: { period: '7d', customFrom: '', customTo: '' },
+  menu:  { period: '7d', customFrom: '', customTo: '' },
+  inv:   { period: '7d', customFrom: '', customTo: '' },
+
+  // Sales tab state
+  salesData: [], salesCount: 0, salesPage: 0, salesPageSize: 50,
+  salesSortCol: 'created_at', salesSortDir: 'desc',
+
+  // Menu tab state
+  menuData: [], menuSortCol: 'qty_sold', menuSortDir: 'desc',
+
+  // Inventory tab state
+  invData: [], invSortCol: 'name', invSortDir: 'asc',
+};
+
+
+// ═══════════════════════════════════════════════════════════════
+//  MAIN TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════
+function switchMainTab(tab) {
+  state.activeTab = tab;
+  ['sales','menu','inventory'].forEach(t => {
+    document.getElementById('panel-' + t).classList.toggle('active', t === tab);
+    document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+  });
+  // Lazy-load menu and inventory on first visit
+  if (tab === 'menu'      && !state.menuLoaded)  { state.menuLoaded  = true; loadMenuCategories().then(() => loadMenuData()); }
+  if (tab === 'inventory' && !state.invLoaded)   { state.invLoaded   = true; loadInvData(); }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  PERIOD PICKER
+// ═══════════════════════════════════════════════════════════════
+function setPeriod(tab, period, btn) {
+  state[tab].period = period;
+  // Update active button within this tab's period picker
+  const wrap = document.getElementById(tab + 'PopoverWrap') || document.getElementById(tab.replace('inv','inv') + 'PopoverWrap');
+  const picker = (wrap || btn.closest('.date-popover-wrap')).querySelector('.period-picker');
+  picker.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Close any open popover
+  closeAllPopovers();
+  // Reload data
+  if (tab === 'sales') loadSalesData();
+  else if (tab === 'menu') loadMenuData();
+  else if (tab === 'inv') loadInvData();
+}
+
+function toggleCustomPopover(tab, btn) {
+  const popId = tab + 'DatePopover';
+  const pop   = document.getElementById(popId);
+  const isOpen = pop.classList.contains('open');
+  closeAllPopovers();
+  if (!isOpen) {
+    // Pre-fill with current custom values or today
+    const today = toISO(new Date());
+    const from = document.getElementById(tab + 'FromDate');
+    const to   = document.getElementById(tab + 'ToDate');
+    if (from && !from.value) from.value = state[tab].customFrom || today;
+    if (to   && !to.value)   to.value   = state[tab].customTo   || today;
+    pop.classList.add('open');
+    // Mark custom btn active
+    btn.closest('.period-picker').querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state[tab].period = 'custom';
+  }
+}
+
+function applyPreset(tab, days) {
+  const today = new Date();
+  const from  = new Date(today);
+  from.setDate(today.getDate() - (days - 1));
+  const fromEl = document.getElementById(tab + 'FromDate');
+  const toEl   = document.getElementById(tab + 'ToDate');
+  if (fromEl) fromEl.value = toISO(from);
+  if (toEl)   toEl.value   = toISO(today);
+}
+
+function applyCustomPeriod(tab) {
+  const fromEl = document.getElementById(tab + 'FromDate');
+  const toEl   = document.getElementById(tab + 'ToDate');
+  const from   = fromEl?.value;
+  const to     = toEl?.value;
+  if (!from || !to) { showToast('Please select both From and To dates', true); return; }
+  if (from > to)    { showToast('From date must be before To date', true); return; }
+  state[tab].customFrom = from;
+  state[tab].customTo   = to;
+  state[tab].period     = 'custom';
+  closeAllPopovers();
+  if (tab === 'sales') loadSalesData();
+  else if (tab === 'menu') loadMenuData();
+  else if (tab === 'inv') loadInvData();
+}
+
+function closeAllPopovers() {
+  document.querySelectorAll('.date-popover.open').forEach(p => p.classList.remove('open'));
+}
+
+// Close popovers when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('.date-popover-wrap')) closeAllPopovers();
+});
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SORTING
+// ═══════════════════════════════════════════════════════════════
+function sortTable(tab, col) {
+  const colKey  = tab === 'sales' ? 'salesSortCol' : tab === 'menu' ? 'menuSortCol' : 'invSortCol';
+  const dirKey  = tab === 'sales' ? 'salesSortDir' : tab === 'menu' ? 'menuSortDir' : 'invSortDir';
+  const prefix  = tab === 'sales' ? 'sarr-' : tab === 'menu' ? 'marr-' : 'iarr-';
+
+  if (state[colKey] === col) {
+    state[dirKey] = state[dirKey] === 'asc' ? 'desc' : 'asc';
+  } else {
+    state[colKey] = col;
+    state[dirKey] = 'asc';
+  }
+
+  // Update sort arrow indicators
+  document.querySelectorAll(`[id^="${prefix}"]`).forEach(el => {
+    el.textContent = '↕';
+    el.closest('th').classList.remove('sort-active');
+  });
+  const arrowEl = document.getElementById(prefix + col);
+  if (arrowEl) {
+    arrowEl.textContent = state[dirKey] === 'asc' ? '↑' : '↓';
+    arrowEl.closest('th').classList.add('sort-active');
+  }
+
+  if (tab === 'sales') renderSalesTable();
+  else if (tab === 'menu') renderMenuTable();
+  else if (tab === 'inv') renderInvTable();
+}
+
+function sortRows(rows, col, dir) {
+  return [...rows].sort((a, b) => {
+    let av = a[col], bv = b[col];
+    if (av === null || av === undefined) av = dir === 'asc' ? Infinity : -Infinity;
+    if (bv === null || bv === undefined) bv = dir === 'asc' ? Infinity : -Infinity;
+    if (typeof av === 'string') return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    return dir === 'asc' ? av - bv : bv - av;
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  TAB 1: SALES
+// ═══════════════════════════════════════════════════════════════
+function getSalesFilters() {
+  return {
+    orderType:     document.getElementById('salesOrderType')?.value     || 'all',
+    paymentStatus: document.getElementById('salesPaymentStatus')?.value || 'all',
+    search:        document.getElementById('salesSearch')?.value        || '',
+  };
+}
+
+function onSalesFilterChange() {
+  state.salesPage = 0;
+  loadSalesData();
+}
+
+async function loadSalesData() {
+  const { from, to } = periodDates(state.sales.period, state.sales.customFrom, state.sales.customTo);
+  const filters = getSalesFilters();
+
+  // Skeleton
+  document.getElementById('salesTableBody').innerHTML =
+    '<tr><td colspan="10"><div class="skeleton skeleton-row"></div></td></tr>'.repeat(4);
+  document.getElementById('salesSummaryRow').innerHTML = '<span>Loading…</span>';
+
+  // Fetch page + summary in parallel
+  const [pageResult, summaryResult] = await Promise.all([
+    REPORT_QUERIES.sales.fetchOrders({ fromDate: from, toDate: to, filters, page: state.salesPage, pageSize: state.salesPageSize }),
+    REPORT_QUERIES.sales.fetchSummary({ fromDate: from, toDate: to, filters }),
+  ]);
+
+  if (pageResult.error) {
+    showToast('Failed to load sales data: ' + pageResult.error.message, true);
+    document.getElementById('salesTableBody').innerHTML = `<tr><td colspan="10" class="empty-state"><span>&#128202;</span>Error loading data</td></tr>`;
+    return;
+  }
+
+  state.salesData  = pageResult.data;
+  state.salesCount = pageResult.count;
+
+  renderSalesTable();
+  renderSalesSummary(summaryResult);
+  renderSalesPagination();
+}
+
+function renderSalesTable() {
+  const tbody = document.getElementById('salesTableBody');
+  const sorted = sortRows(state.salesData, state.salesSortCol, state.salesSortDir);
+
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state"><span>&#128202;</span>No orders found for this period</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = sorted.map(row => `
+    <tr>
+      <td style="color:var(--text-muted);font-size:13px;white-space:nowrap;">${escHtml(fmtDate(row.created_at))}</td>
+      <td style="font-family:monospace;font-weight:700;color:var(--brown-dark);">${escHtml(row.order_no || '—')}</td>
+      <td style="font-weight:600;">${escHtml(row.customer_name)}</td>
+      <td>${orderTypeBadge(row.order_type)}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--text-muted);" title="${escHtml(row.items_summary)}">${escHtml(row.items_summary)}</td>
+      <td style="text-align:right;font-weight:600;">${fmtMoney(row.subtotal)}</td>
+      <td style="text-align:right;color:var(--text-muted);">${row.delivery_fee > 0 ? fmtMoney(row.delivery_fee) : '<span style="color:var(--text-muted)">—</span>'}</td>
+      <td style="text-align:right;font-weight:700;color:var(--brown-dark);">${fmtMoney(row.total_price)}</td>
+      <td>${orderStatusBadge(row.status)}</td>
+      <td>${paymentStatusBadge(row.payment_status)}</td>
+    </tr>`).join('');
+}
+
+function renderSalesSummary(s) {
+  const el = document.getElementById('salesSummaryRow');
+  if (s.error) { el.innerHTML = '<span style="color:var(--error)">Summary unavailable</span>'; return; }
+  el.innerHTML = `
+    <span><span class="sum-val">${s.totalOrders.toLocaleString()}</span> orders</span>
+    <div class="summary-divider"></div>
+    <span><span class="sum-val">${fmtMoney(s.totalRevenue)}</span> total revenue <span style="font-size:11px;color:var(--text-muted)"></span></span>
+    <div class="summary-divider"></div>
+    <span><span class="sum-val">${s.cancelledOrders.toLocaleString()}</span> cancelled</span>`;
+}
+
+function renderSalesPagination() {
+  const totalPages = Math.max(1, Math.ceil(state.salesCount / state.salesPageSize));
+  const currentPage = state.salesPage + 1;
+  document.getElementById('salesPageLabel').textContent = `Page ${currentPage} of ${totalPages}`;
+  document.getElementById('salesPrevBtn').disabled = state.salesPage === 0;
+  document.getElementById('salesNextBtn').disabled = currentPage >= totalPages;
+}
+
+function salesChangePage(delta) {
+  const totalPages = Math.ceil(state.salesCount / state.salesPageSize);
+  const newPage = state.salesPage + delta;
+  if (newPage < 0 || newPage >= totalPages) return;
+  state.salesPage = newPage;
+  loadSalesData();
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  TAB 2: MENU & OPTIONS
+// ═══════════════════════════════════════════════════════════════
+async function loadMenuCategories() {
+  const { data, error } = await REPORT_QUERIES.menuOptions.fetchCategories();
+  if (error) return;
+  const sel = document.getElementById('menuCategory');
+  sel.innerHTML = '<option value="all">All Categories</option>' +
+    (data || []).map(c => `<option value="${escHtml(c.id)}">${escHtml(c.name)}</option>`).join('');
+}
+
+function getMenuFilters() {
+  return {
+    categoryId: document.getElementById('menuCategory')?.value || 'all',
+    search:     document.getElementById('menuSearch')?.value   || '',
+  };
+}
+
+function onMenuFilterChange() {
+  loadMenuData();
+}
+
+async function loadMenuData() {
+  const { from, to } = periodDates(state.menu.period, state.menu.customFrom, state.menu.customTo);
+  const filters = getMenuFilters();
+
+  document.getElementById('menuTableBody').innerHTML =
+    '<tr><td colspan="9"><div class="skeleton skeleton-row"></div></td></tr>'.repeat(4);
+  document.getElementById('menuSummaryRow').innerHTML = '<span>Loading…</span>';
+
+  const result = await REPORT_QUERIES.menuOptions.fetchMenuPerformance({ fromDate: from, toDate: to, filters });
+
+  if (result.error) {
+    showToast('Failed to load menu data: ' + result.error.message, true);
+    document.getElementById('menuTableBody').innerHTML = `<tr><td colspan="9" class="empty-state"><span>&#127861;</span>Error loading data</td></tr>`;
+    return;
+  }
+
+  state.menuData = result.data;
+  renderMenuTable();
+  renderMenuSummary(result.totals);
+}
+
+function renderMenuTable() {
+  const tbody = document.getElementById('menuTableBody');
+  const sorted = sortRows(state.menuData, state.menuSortCol, state.menuSortDir);
+
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr><td colspan="9" class="empty-state"><span>&#127861;</span>No menu data for this period</td></tr>`;
+    return;
+  }
+
+  // Re-rank after sort (rank column always shows position in current sort order)
+  tbody.innerHTML = sorted.map((row, idx) => `
+    <tr>
+      <td style="color:var(--text-muted);font-weight:700;text-align:center;">#${idx + 1}</td>
+      <td style="font-weight:600;">${escHtml(row.menu_name)}</td>
+      <td><span style="font-size:var(--text-xs);color:var(--text-muted);">${escHtml(row.category_name)}</span></td>
+      <td style="font-weight:700;text-align:right;">${row.qty_sold.toLocaleString()}</td>
+      <td style="text-align:right;font-weight:600;">${fmtMoney(row.revenue)}</td>
+      <td style="text-align:right;color:var(--text-muted);">${fmtMoney(row.avg_unit_price)}</td>
+      <td style="text-align:right;">${row.recipe_cost !== null ? fmtMoney(row.recipe_cost) : '<span style="color:var(--text-muted)">—</span>'}</td>
+      <td style="text-align:right;">${fcPctHtml(row.fc_pct)}</td>
+      <td style="font-size:13px;color:var(--text-muted);">${escHtml(row.top_option)}</td>
+    </tr>`).join('');
+}
+
+function renderMenuSummary(totals) {
+  const el = document.getElementById('menuSummaryRow');
+  if (!totals) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <span><span class="sum-val">${state.menuData.length.toLocaleString()}</span> items</span>
+    <div class="summary-divider"></div>
+    <span><span class="sum-val">${(totals.totalQty || 0).toLocaleString()}</span> qty sold</span>
+    <div class="summary-divider"></div>
+    <span><span class="sum-val">${fmtMoney(totals.totalRevenue || 0)}</span> total revenue <span style="font-size:11px;color:var(--text-muted)"></span></span>`;
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  TAB 3: INVENTORY
+// ═══════════════════════════════════════════════════════════════
+function getInvFilters() {
+  return {
+    statusFilter: document.getElementById('invStatus')?.value || 'all',
+    search:       document.getElementById('invSearch')?.value || '',
+  };
+}
+
+function onInvFilterChange() {
+  loadInvData();
+}
+
+async function loadInvData() {
+  const { from, to } = periodDates(state.inv.period, state.inv.customFrom, state.inv.customTo);
+  const filters = getInvFilters();
+
+  document.getElementById('invTableBody').innerHTML =
+    '<tr><td colspan="10"><div class="skeleton skeleton-row"></div></td></tr>'.repeat(4);
+  document.getElementById('invSummaryRow').innerHTML = '<span>Loading…</span>';
+
+  const result = await REPORT_QUERIES.inventory.fetchInventory({ fromDate: from, toDate: to, filters });
+
+  if (result.error) {
+    showToast('Failed to load inventory: ' + (result.error.message || JSON.stringify(result.error)), true);
+    document.getElementById('invTableBody').innerHTML = `<tr><td colspan="10" class="empty-state">&#128230; Error: ${escHtml(result.error.message || 'Unknown error')}</td></tr>`;
+    return;
+  }
+
+  state.invData = result.data;
+  renderInvTable();
+  renderInvSummary(result.totals);
+}
+
+function renderInvTable() {
+  const tbody = document.getElementById('invTableBody');
+  const sorted = sortRows(state.invData, state.invSortCol, state.invSortDir);
+
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state"><span>&#128230;</span>No inventory data found</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = sorted.map(row => `
+    <tr>
+      <td style="font-weight:600;">${escHtml(row.name)}</td>
+      <td style="color:var(--text-muted);">${escHtml(row.unit)}</td>
+      <td style="font-weight:700;text-align:right;">${fmtNum(row.current_stock)}</td>
+      <td style="text-align:right;color:var(--text-muted);">${fmtNum(row.reorder_level)}</td>
+      <td>${stockStatusBadge(row.status_badge)}</td>
+      <td style="text-align:right;">${fmtNum(row.total_deducted)}</td>
+      <td style="text-align:right;color:#16a34a;">${fmtNum(row.total_restocked)}</td>
+      <td style="text-align:right;color:#b91c1c;">${fmtNum(row.total_wastage)}</td>
+      <td style="text-align:right;color:var(--text-muted);">${fmtMoney(row.cost_per_unit)}</td>
+      <td style="text-align:right;font-weight:700;">${fmtMoney(row.stock_value)}</td>
+    </tr>`).join('');
+}
+
+function renderInvSummary(totals) {
+  const el = document.getElementById('invSummaryRow');
+  if (!totals) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <span><span class="sum-val">${fmtMoney(totals.totalStockValue)}</span> stock value</span>
+    <div class="summary-divider"></div>
+    <span><span class="sum-val">${fmtNum(totals.totalDeducted)}</span> units deducted</span>
+    <div class="summary-divider"></div>
+    <span><span class="sum-val">${fmtNum(totals.totalWastage)}</span> units wasted</span>
+    <div class="summary-divider"></div>
+    <span><span class="sum-val">${totals.criticalCount}</span> critical, <span class="sum-val">${totals.lowCount}</span> low</span>`;
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  CSV EXPORT
+// ═══════════════════════════════════════════════════════════════
+function csvEscape(val) {
+  const s = String(val === null || val === undefined ? '' : val);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+function buildCSV(headers, rows) {
+  const lines = [headers.map(csvEscape).join(',')];
+  for (const row of rows) lines.push(row.map(csvEscape).join(','));
+  return lines.join('\n');
+}
+function downloadCSV(content, filename) {
+  const blob = new Blob(['﻿' + content], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function exportCSV(tab) {
+  const dateStr = toISO(new Date());
+
+  if (tab === 'sales') {
+    showToast('Preparing export…');
+    const { from, to } = periodDates(state.sales.period, state.sales.customFrom, state.sales.customTo);
+    const filters = getSalesFilters();
+    // Fetch all rows (not just current page)
+    const result = await REPORT_QUERIES.sales.fetchOrders({ fromDate: from, toDate: to, filters, page: 0, pageSize: 9999 });
+    if (result.error) { showToast('Export failed: ' + result.error.message, true); return; }
+    const headers = ['Date & Time','Order #','Customer','Type','Items','Subtotal','Delivery Fee','Total','Status','Payment'];
+    const sorted  = sortRows(result.data, state.salesSortCol, state.salesSortDir);
+    const rows    = sorted.map(r => [
+      fmtDate(r.created_at), r.order_no, r.customer_name, r.order_type,
+      r.items_summary, r.subtotal, r.delivery_fee, r.total_price, r.status, r.payment_status,
+    ]);
+    downloadCSV(buildCSV(headers, rows), `glongnom-sales-${dateStr}.csv`);
+    showToast('Sales export downloaded');
+  }
+
+  else if (tab === 'menu') {
+    const sorted  = sortRows(state.menuData, state.menuSortCol, state.menuSortDir);
+    const headers = ['Rank','Menu Item','Category','Qty Sold','Revenue (฿)','Avg Price (฿)','Recipe Cost (฿)','FC%','Top Choice'];
+    const rows    = sorted.map((r, idx) => [
+      idx + 1, r.menu_name, r.category_name, r.qty_sold,
+      Number(r.revenue).toFixed(2), Number(r.avg_unit_price).toFixed(2),
+      r.recipe_cost !== null ? Number(r.recipe_cost).toFixed(2) : '',
+      r.fc_pct !== null ? r.fc_pct.toFixed(1) : '',
+      r.top_option,
+    ]);
+    downloadCSV(buildCSV(headers, rows), `glongnom-menu-${dateStr}.csv`);
+    showToast('Menu export downloaded');
+  }
+
+  else if (tab === 'inv') {
+    const sorted  = sortRows(state.invData, state.invSortCol, state.invSortDir);
+    const headers = ['Ingredient','Unit','Current Stock','Reorder Level','Status','Deducted','Restocked','Wastage','Cost/Unit (฿)','Stock Value (฿)'];
+    const rows    = sorted.map(r => [
+      r.name, r.unit, r.current_stock, r.reorder_level, r.status_badge,
+      r.total_deducted, r.total_restocked, r.total_wastage,
+      Number(r.cost_per_unit).toFixed(2), Number(r.stock_value).toFixed(2),
+    ]);
+    downloadCSV(buildCSV(headers, rows), `glongnom-inventory-${dateStr}.csv`);
+    showToast('Inventory export downloaded');
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+async function init() {
+  const profile = await Auth.require(['admin', 'manager']);
+  if (!profile) return;
+
+  const info = document.getElementById('sidebarUserInfo');
+  info.textContent = (profile.name || '') + (profile.email ? ' · ' + profile.email : '');
+
+  // Load sales tab immediately (it's the default active tab)
+  await loadSalesData();
+
+  // Auto-refresh: re-run the active tab's query when orders or inventory change
+  let _repDebounce = null;
+  const _repRefresh = () => {
+    clearTimeout(_repDebounce);
+    _repDebounce = setTimeout(() => {
+      if (state.activeTab === 'sales')     loadSalesData();
+      if (state.activeTab === 'menu')      loadMenuData();
+      if (state.activeTab === 'inventory') loadInvData();
+    }, 800);
+  };
+  window.supabase
+    .channel('reports_realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, _repRefresh)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'inventory_deductions' }, _repRefresh)
+    .subscribe();
+
+  // Refresh when user switches back to this browser tab
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') _repRefresh();
+  });
+}
+
+init();
+</script>
+
+</body>
+</html>

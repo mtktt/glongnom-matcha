@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Glongnom — Printers</title>
+  <link rel="stylesheet" href="/css/design-system.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/receipt.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Sarabun', system-ui, sans-serif; background: var(--bg); color: var(--text-primary); padding-top: 52px; }
+
+    /* TOPBAR */
+    .topbar { background: var(--surface-warm); border-bottom: 1.5px solid var(--border); box-shadow: var(--shadow-xs); height: 52px; display: flex; align-items: center; padding: 0 16px; position: fixed; top: 0; left: 0; right: 0; z-index: 1100; gap: 12px; }
+    .topbar-hamburger { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--brown-dark); padding: 4px 6px; flex-shrink: 0; line-height: 1; }
+    .topbar-hamburger:hover { color: var(--brown-mid); }
+    .topbar-brand { font-weight: 700; font-size: var(--text-base); color: var(--brown-dark); white-space: nowrap; }
+    .topbar-page-label { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }
+    .topbar-spacer { flex: 1; }
+
+    /* SIDEBAR */
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(61,28,2,0.35); z-index: 1150; }
+    .sidebar-backdrop.show { display: block; }
+    #sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 260px; background: var(--surface-warm); border-right: 1.5px solid var(--border); box-shadow: var(--shadow-lg); z-index: 1200; transform: translateX(-100%); transition: transform 0.3s ease; display: flex; flex-direction: column; }
+    #sidebar.open { transform: translateX(0); }
+    .sidebar-header { height: 60px; display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--pink-accent); flex-shrink: 0; }
+    .sidebar-header .sb-brand { font-weight: 800; font-size: 16px; color: var(--brown-dark); flex: 1; }
+    .sidebar-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 4px; }
+    .sidebar-close:hover { color: var(--brown-dark); }
+    .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; }
+    .sidebar-nav a { display: block; text-decoration: none; padding: 12px 20px; font-size: 14px; font-weight: 600; color: var(--text-secondary); border-left: 3px solid transparent; transition: background 0.15s, color 0.15s; }
+    .sidebar-nav a:hover { background: var(--surface); color: var(--brown-mid); }
+    .sidebar-nav a.active { background: var(--pink-soft); color: var(--brown-dark); border-left-color: var(--pink-deep); }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+    .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+    .sidebar-user-info { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .sidebar-signout { width: 100%; padding: 9px 14px; border-radius: var(--radius-pill); border: 1.5px solid var(--border); background: none; font-size: 13px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); cursor: pointer; transition: background 0.2s, color 0.2s; }
+    .sidebar-signout:hover { background: var(--error-light); color: var(--error); border-color: var(--error); }
+
+    /* LAYOUT */
+    .container { max-width: 960px; margin: 0 auto; padding: 28px 20px; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .page-header h1 { font-size: var(--text-2xl); font-weight: 700; color: var(--text-primary); }
+
+    /* BUTTONS */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-pill); border: none; font-size: 13px; font-weight: 700; font-family: 'Sarabun', system-ui, sans-serif; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+    .btn-primary  { background: var(--brown-dark); color: #fff; }
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-ghost { background: none; border: 1.5px solid var(--border); color: var(--text-secondary); }
+    .btn-ghost:hover { background: var(--surface-warm); }
+    .btn-danger { background: #fee2e2; color: #b91c1c; border: none; }
+    .btn-danger:hover { background: #fecaca; }
+    .btn-sm { padding: 5px 11px; font-size: 12px; }
+
+    /* PRINTER GRID */
+    .printer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+
+    /* PRINTER CARD */
+    .printer-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-xs); transition: box-shadow 0.2s; }
+    .printer-card:hover { box-shadow: var(--shadow-md); }
+    .printer-card.is-default { border-color: var(--pink-deep); }
+
+    .card-head { padding: 14px 16px 12px; background: var(--surface-warm); border-bottom: 1px solid var(--border); }
+    .card-head-row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .printer-name { font-size: 15px; font-weight: 800; color: var(--text-primary); flex: 1; }
+    .default-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: var(--radius-pill); background: var(--pink-soft); color: var(--pink-deep); border: 1px solid var(--pink-accent); }
+    .printer-model { font-size: 12px; color: var(--text-muted); }
+
+    .card-body { padding: 12px 16px; }
+    .info-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; }
+    .info-label { color: var(--text-muted); min-width: 56px; font-size: 12px; }
+    .info-val { color: var(--text-primary); font-weight: 600; font-size: 12px; font-family: 'Courier New', monospace; }
+    .conn-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-pill); }
+    .conn-browser { background: #e0e7ff; color: #3730a3; }
+    .conn-network { background: #d1fae5; color: #065f46; }
+
+    /* STATUS DOT */
+    .status-wrap { display: flex; align-items: center; gap: 6px; }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .status-online   { background: #22c55e; }
+    .status-offline  { background: #ef4444; }
+    .status-unknown  { background: #d1d5db; }
+    .status-checking { background: #f59e0b; animation: blink 0.8s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .status-label { font-size: 12px; color: var(--text-muted); }
+
+    .card-notes { font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+    .card-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 13px; border-top: 1px solid var(--border); background: var(--surface-warm); }
+
+    /* EMPTY STATE */
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty-state-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+    .empty-state-title { font-size: 16px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+    .empty-state-sub { font-size: 13px; margin-bottom: 20px; }
+
+    /* MODAL BACKDROP */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.48);
+      z-index: 1300; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-backdrop.show { display: flex; }
+
+    /* MODAL BOX */
+    .modal-box {
+      background: var(--surface-warm); border-radius: var(--radius-lg);
+      border: 1.5px solid var(--border); box-shadow: var(--shadow-lg);
+      width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto;
+      padding: 24px; display: flex; flex-direction: column; gap: 16px;
+    }
+    .modal-title { font-size: var(--text-xl); font-weight: 800; color: var(--text-primary); }
+    .modal-divider { height: 1px; background: var(--border); }
+
+    /* FORM */
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; }
+    .form-label .req { color: #dc2626; margin-left: 2px; }
+    .form-input {
+      padding: 9px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 14px; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-primary);
+      background: var(--surface); outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .form-input:focus { border-color: var(--pink-deep); box-shadow: 0 0 0 3px rgba(255,133,161,0.18); }
+    .form-hint { font-size: 11px; color: var(--text-muted); }
+
+    /* Radio type selector */
+    .type-selector { display: flex; gap: 10px; }
+    .type-option {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 10px 8px; border: 1.5px solid var(--border); border-radius: var(--radius-md);
+      cursor: pointer; transition: border-color 0.15s, background 0.15s; text-align: center;
+    }
+    .type-option:hover { background: var(--surface-warm); }
+    .type-option.selected { border-color: var(--pink-deep); background: var(--pink-soft); }
+    .type-option input { display: none; }
+    .type-icon { font-size: 22px; }
+    .type-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+    .type-option.selected .type-label { color: var(--brown-dark); }
+
+    /* Network fields (shown/hidden by connection type) */
+    .network-fields { display: flex; flex-direction: column; gap: 12px; }
+    .network-fields.hidden { display: none; }
+    .ip-port-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
+    .ip-port-row .form-input { width: 80px; }
+
+    /* Modal actions */
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
+
+    /* Delete modal */
+    .delete-modal-box { max-width: 360px; }
+    .delete-msg { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+    .delete-name { font-weight: 800; color: var(--text-primary); }
+
+    /* RECEIPT PREVIEW MODAL */
+    .preview-modal-box { max-width: 340px; }
+    .receipt-preview {
+      background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 16px 14px; font-family: 'Courier New', Courier, monospace;
+      font-size: 9pt; line-height: 1.55; color: #000; max-height: 420px; overflow-y: auto;
+    }
+    .rp-center  { text-align: center; }
+    .rp-name    { font-size: 13pt; font-weight: bold; text-align: center; }
+    .rp-sub     { font-size: 7.5pt; text-align: center; color: #555; }
+    .rp-d       { border-top: 1px dashed #000; margin: 5px 0; }
+    .rp-s       { border-top: 1.5px solid #000; margin: 4px 0; }
+    .rp-row     { display: flex; justify-content: space-between; gap: 4px; font-size: 9pt; }
+    .rp-opts    { font-size: 7.5pt; color: #444; padding-left: 10px; }
+    .rp-total   { display: flex; justify-content: space-between; font-size: 11pt; font-weight: bold; }
+    .rp-meta    { font-size: 8pt; }
+    .rp-thanks  { text-align: center; font-size: 9pt; margin-top: 4px; }
+    .rp-thanks-sm { text-align: center; font-size: 7.5pt; color: #444; }
+
+    /* TOAST */
+    .toast { position: fixed; bottom: calc(var(--space-6) + env(safe-area-inset-bottom,0px)); right: var(--space-6); background: var(--brown-dark); color: #fff; padding: var(--space-3) var(--space-5); border-radius: var(--radius-pill); font-size: var(--text-base); z-index: 9999; opacity: 0; transform: translateY(12px); transition: all 0.3s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ---- RESPONSIVE / MOBILE ---- */
+    @media (max-width: 640px) {
+      #sidebar { width: min(82vw, 300px); }
+      .container { padding: var(--space-5) var(--space-4); }
+      .topbar-page-label { display: none; }
+      .page-header { flex-wrap: wrap; gap: var(--space-3); }
+      .page-header h1 { font-size: var(--text-xl); }
+
+      .printer-grid { grid-template-columns: 1fr; }
+      .modal-box, .delete-modal-box, .preview-modal-box { padding: 18px; max-width: 100%; }
+      .modal-actions { flex-wrap: wrap; }
+      .modal-actions .btn { flex: 1; }
+      .ip-port-row { grid-template-columns: 1fr 90px; }
+
+      .toast { left: var(--space-4); right: var(--space-4); text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <button class="topbar-hamburger" onclick="openSidebar()" aria-label="Open menu">&#9776;</button>
+  <span class="topbar-brand">Glongnom POS</span>
+  <span class="topbar-page-label">/ Printers</span>
+  <div class="topbar-spacer"></div>
+</div>
+
+<!-- Sidebar Backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<!-- Sidebar -->
+<aside id="sidebar" role="navigation" aria-label="Admin navigation">
+  <div class="sidebar-header">
+    <span class="sb-brand">Glongnom POS</span>
+    <button class="sidebar-close" onclick="closeSidebar()" aria-label="Close menu">&times;</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-group-label">Management</div>
+    <a href="/admin/orders.html">&#129534; Order Queue</a>
+    <a href="/admin/">&#128203; Menu Management</a>
+    <a href="/admin/options.html">&#9881;&#65039; Options</a>
+    <a href="/admin/customers.html">&#127919; Customers</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Inventory</div>
+    <a href="/admin/inventory.html">&#128230; Inventory</a>
+    <a href="/admin/suppliers.html">&#128666; Suppliers</a>
+    <a href="/admin/purchase-orders.html">&#128722; Purchases</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Analysis</div>
+    <a href="/admin/dashboard.html">&#128202; Dashboard</a>
+    <a href="/admin/reports.html">&#128202; Reports</a>
+    <a href="/admin/accounting.html">&#128210; Accounting</a>
+    <a href="/admin/finance.html">&#128200; Finance</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Setting</div>
+    <a href="/admin/users.html">&#128101; Staff</a>
+    <a href="/admin/printer.html" class="active">&#128424;&#65039; Printers</a>
+  </nav>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user-info" id="sidebarUserInfo">Loading…</div>
+    <button class="sidebar-signout" onclick="Auth.signOut()">Sign Out</button>
+  </div>
+</aside>
+
+<!-- Main content -->
+<div class="container">
+  <div class="page-header">
+    <h1>Printers</h1>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add Printer</button>
+  </div>
+
+  <div class="error-banner" id="loadErrorBanner">
+    <span class="error-banner-msg">Failed to load printers.</span>
+    <button class="error-banner-retry" onclick="loadPrinters()">Retry</button>
+  </div>
+
+  <div id="printerGrid" class="printer-grid">
+    <div class="skeleton skeleton-card"></div>
+    <div class="skeleton skeleton-card"></div>
+  </div>
+</div>
+
+<!-- ── ADD / EDIT MODAL ── -->
+<div class="modal-backdrop" id="editModal">
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle">Add Printer</div>
+    <div class="modal-divider"></div>
+
+    <div class="form-group">
+      <label class="form-label" for="fName">Name <span class="req">*</span></label>
+      <input class="form-input" id="fName" type="text" placeholder="e.g. Counter Printer">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="fModel">Model</label>
+      <input class="form-input" id="fModel" type="text" placeholder="XPrinter XP-58IIL">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Connection Type</label>
+      <div class="type-selector">
+        <label class="type-option selected" id="typeBrowser" onclick="selectType('browser')">
+          <input type="radio" name="connType" value="browser" checked>
+          <span class="type-icon">&#128438;</span>
+          <span class="type-label">Browser Print</span>
+        </label>
+        <label class="type-option" id="typeNetwork" onclick="selectType('network')">
+          <input type="radio" name="connType" value="network">
+          <span class="type-icon">&#128246;</span>
+          <span class="type-label">Network (IP)</span>
+        </label>
+      </div>
+      <div class="form-hint" id="typeHint">Uses browser print dialog — works on any setup. No configuration needed.</div>
+    </div>
+
+    <div class="network-fields hidden" id="networkFields">
+      <div class="form-group">
+        <label class="form-label" for="fIp">IP Address</label>
+        <div class="ip-port-row">
+          <input class="form-input" id="fIp" type="text" placeholder="192.168.1.100">
+          <input class="form-input" id="fPort" type="number" value="9100" min="1" max="65535" placeholder="9100">
+        </div>
+        <div class="form-hint">Default ESC/POS port is 9100. Requires local print agent.</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="fNotes">Notes</label>
+      <input class="form-input" id="fNotes" type="text" placeholder="e.g. Kitchen station, cashier desk">
+    </div>
+
+    <div class="form-group" style="flex-direction:row;align-items:center;gap:10px;">
+      <input type="checkbox" id="fDefault" style="width:16px;height:16px;accent-color:var(--pink-deep);cursor:pointer;">
+      <label for="fDefault" style="font-size:13px;font-weight:600;cursor:pointer;color:var(--text-secondary);">Set as default printer</label>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePrinter()">Save Printer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DELETE CONFIRM MODAL ── -->
+<div class="modal-backdrop" id="deleteModal">
+  <div class="modal-box delete-modal-box">
+    <div class="modal-title">Delete Printer?</div>
+    <div class="modal-divider"></div>
+    <p class="delete-msg">
+      Delete <span class="delete-name" id="deleteTargetName"></span>? This cannot be undone.
+    </p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('deleteModal')">Cancel</button>
+      <button class="btn btn-danger" id="deleteConfirmBtn" onclick="deletePrinter()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── RECEIPT PREVIEW MODAL ── -->
+<div class="modal-backdrop" id="previewModal">
+  <div class="modal-box preview-modal-box">
+    <div class="modal-title">Receipt Preview</div>
+    <div class="form-hint" style="margin-top:-8px;">58mm · XPrinter XP-58IIL format</div>
+    <div class="modal-divider"></div>
+    <div class="receipt-preview" id="receiptPreview">
+      <!-- rendered receipt preview -->
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('previewModal')">Close</button>
+      <button class="btn btn-primary" onclick="triggerTestPrint()" id="printBtn">&#128424; Print Test</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── SIDEBAR ──
+function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebarBackdrop').classList.add('show'); document.body.style.overflow='hidden'; }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarBackdrop').classList.remove('show'); document.body.style.overflow=''; }
+
+// ── STATE ──
+let printers     = [];
+let editingId    = null;
+let deletingId   = null;
+let activeType   = 'browser';
+let shopConfig   = {};
+
+// ── INIT ──
+async function init() {
+  const profile = await Auth.require(['admin', 'manager']);
+  if (!profile) return;
+  document.getElementById('sidebarUserInfo').textContent =
+    (profile.name || '') + (profile.email ? ' · ' + profile.email : '');
+
+  // Load shop config for receipt builder
+  const { data: shop } = await supabase.from('shops').select('name,phone').single();
+  if (shop) shopConfig = { name: shop.name, phone: shop.phone };
+
+  await loadPrinters();
+}
+
+async function loadPrinters() {
+  const { data, error } = await supabase
+    .from('printers')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    document.getElementById('loadErrorBanner').classList.add('show');
+    return;
+  }
+  document.getElementById('loadErrorBanner').classList.remove('show');
+  printers = data || [];
+  renderPrinters();
+}
+
+// ── RENDER ──
+function renderPrinters() {
+  const grid = document.getElementById('printerGrid');
+
+  if (!printers.length) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1;">
+        <div class="empty-state-icon">&#128424;&#65039;</div>
+        <div class="empty-state-title">No printers configured</div>
+        <div class="empty-state-sub">Add your first printer to start printing receipts.</div>
+        <button class="btn btn-primary" onclick="openAddModal()">+ Add Printer</button>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = printers.map(p => {
+    const isNetwork = p.connection_type === 'network';
+    const connBadge = isNetwork
+      ? `<span class="conn-badge conn-network">Network</span>`
+      : `<span class="conn-badge conn-browser">Browser</span>`;
+
+    const statusDot   = `status-${p.last_status || 'unknown'}`;
+    const statusLabel = { online: 'Online', offline: 'Offline', unknown: 'Unknown' }[p.last_status || 'unknown'] || 'Unknown';
+
+    const ipRow = isNetwork && p.ip_address
+      ? `<div class="info-row"><span class="info-label">IP</span><span class="info-val">${escHtml(p.ip_address)}:${p.port || 9100}</span></div>`
+      : '';
+
+    const notesRow = p.notes
+      ? `<div class="card-notes">${escHtml(p.notes)}</div>`
+      : '';
+
+    const checkBtn = isNetwork
+      ? `<button class="btn btn-ghost btn-sm" onclick="checkStatus('${p.id}')">&#128308; Check</button>`
+      : '';
+
+    return `
+    <div class="printer-card ${p.is_default ? 'is-default' : ''}" id="pcard-${p.id}">
+      <div class="card-head">
+        <div class="card-head-row1">
+          <span class="printer-name">${escHtml(p.name)}</span>
+          ${p.is_default ? '<span class="default-badge">Default</span>' : ''}
+        </div>
+        <div class="printer-model">${escHtml(p.model || 'XPrinter XP-58IIL')}</div>
+      </div>
+      <div class="card-body">
+        <div class="info-row">
+          <span class="info-label">Type</span>
+          ${connBadge}
+        </div>
+        ${ipRow}
+        <div class="info-row">
+          <span class="info-label">Status</span>
+          <div class="status-wrap">
+            <span class="status-dot ${statusDot}" id="status-${p.id}"></span>
+            <span class="status-label" id="status-label-${p.id}">${statusLabel}</span>
+          </div>
+        </div>
+        ${notesRow}
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditModal('${p.id}')">&#9998; Edit</button>
+        <button class="btn btn-ghost btn-sm" onclick="openPreview('${p.id}')">&#128424; Test Print</button>
+        ${checkBtn}
+        ${!p.is_default ? `<button class="btn btn-ghost btn-sm" onclick="setDefault('${p.id}')">&#9733; Set Default</button>` : ''}
+        <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${p.id}', '${escHtml(p.name)}')">&#10005; Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── MODAL HELPERS ──
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+// ── ADD / EDIT MODAL ──
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = 'Add Printer';
+  document.getElementById('fName').value    = '';
+  document.getElementById('fModel').value   = 'XPrinter XP-58IIL';
+  document.getElementById('fIp').value      = '';
+  document.getElementById('fPort').value    = '9100';
+  document.getElementById('fNotes').value   = '';
+  document.getElementById('fDefault').checked = !printers.length; // default if first printer
+  selectType('browser');
+  document.getElementById('editModal').classList.add('show');
+}
+
+function openEditModal(id) {
+  const p = printers.find(x => x.id === id);
+  if (!p) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = 'Edit Printer';
+  document.getElementById('fName').value    = p.name    || '';
+  document.getElementById('fModel').value   = p.model   || 'XPrinter XP-58IIL';
+  document.getElementById('fIp').value      = p.ip_address || '';
+  document.getElementById('fPort').value    = p.port    || 9100;
+  document.getElementById('fNotes').value   = p.notes   || '';
+  document.getElementById('fDefault').checked = !!p.is_default;
+  selectType(p.connection_type || 'browser');
+  document.getElementById('editModal').classList.add('show');
+}
+
+function selectType(type) {
+  activeType = type;
+  document.getElementById('typeBrowser').classList.toggle('selected', type === 'browser');
+  document.getElementById('typeNetwork').classList.toggle('selected', type === 'network');
+  document.getElementById('networkFields').classList.toggle('hidden', type !== 'network');
+  document.getElementById('typeHint').textContent = type === 'network'
+    ? 'Sends ESC/POS commands via local print agent. Requires agent running on shop PC.'
+    : 'Uses browser print dialog — works on any setup. No configuration needed.';
+}
+
+async function savePrinter() {
+  const name = document.getElementById('fName').value.trim();
+  if (!name) { showToast('Name is required'); document.getElementById('fName').focus(); return; }
+
+  const isDefault = document.getElementById('fDefault').checked;
+  const payload = {
+    name,
+    model:           document.getElementById('fModel').value.trim() || 'XPrinter XP-58IIL',
+    connection_type: activeType,
+    ip_address:      activeType === 'network' ? document.getElementById('fIp').value.trim()    : null,
+    port:            activeType === 'network' ? parseInt(document.getElementById('fPort').value) || 9100 : null,
+    notes:           document.getElementById('fNotes').value.trim() || null,
+    is_default:      isDefault,
+  };
+
+  // If setting as default, clear others first
+  if (isDefault) {
+    await supabase.from('printers').update({ is_default: false }).neq('id', editingId || '00000000-0000-0000-0000-000000000000');
+  }
+
+  let error;
+  if (editingId) {
+    ({ error } = await supabase.from('printers').update(payload).eq('id', editingId));
+  } else {
+    ({ error } = await supabase.from('printers').insert(payload));
+  }
+
+  if (error) { showToast('Error: ' + error.message); return; }
+  showToast(editingId ? 'Printer updated' : 'Printer added');
+  closeModal('editModal');
+  await loadPrinters();
+}
+
+// ── DELETE ──
+function openDeleteModal(id, name) {
+  deletingId = id;
+  document.getElementById('deleteTargetName').textContent = name;
+  document.getElementById('deleteModal').classList.add('show');
+}
+
+async function deletePrinter() {
+  if (!deletingId) return;
+  const { error } = await supabase.from('printers').delete().eq('id', deletingId);
+  if (error) { showToast('Error: ' + error.message); return; }
+  showToast('Printer deleted');
+  closeModal('deleteModal');
+  await loadPrinters();
+}
+
+// ── SET DEFAULT ──
+async function setDefault(id) {
+  await supabase.from('printers').update({ is_default: false }).neq('id', id);
+  const { error } = await supabase.from('printers').update({ is_default: true }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message); return; }
+  showToast('Default printer updated');
+  await loadPrinters();
+}
+
+// ── STATUS CHECK ──
+async function checkStatus(printerId) {
+  const printer = printers.find(p => p.id === printerId);
+  if (!printer?.ip_address) return;
+
+  const dot   = document.getElementById(`status-${printerId}`);
+  const label = document.getElementById(`status-label-${printerId}`);
+  dot.className   = 'status-dot status-checking';
+  label.textContent = 'Checking…';
+
+  let status = 'offline';
+  try {
+    await Promise.race([
+      fetch(`http://${printer.ip_address}/`, { mode: 'no-cors', cache: 'no-store' }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
+    ]);
+    status = 'online';
+  } catch(e) {
+    status = (e.message === 'timeout') ? 'offline' : 'offline';
+  }
+
+  dot.className     = `status-dot status-${status}`;
+  label.textContent = status === 'online' ? 'Online' : 'Offline';
+
+  await supabase.from('printers')
+    .update({ last_status: status, last_checked_at: new Date().toISOString() })
+    .eq('id', printerId);
+
+  const p = printers.find(x => x.id === printerId);
+  if (p) p.last_status = status;
+}
+
+// ── RECEIPT PREVIEW ──
+function openPreview(printerId) {
+  renderPreviewPanel();
+  document.getElementById('previewModal').dataset.printerId = printerId || '';
+  document.getElementById('previewModal').classList.add('show');
+}
+
+function renderPreviewPanel() {
+  const order = RECEIPT_TEST_ORDER;
+  const shop  = shopConfig;
+  const date  = new Date(order.created_at);
+  const dateStr = date.toLocaleDateString('th-TH', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const timeStr = date.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
+
+  const itemsHTML = order.order_items.map(item => {
+    const opts = item.order_item_options.map(o => o.choice_name).join(', ');
+    const lineTotal = (item.unit_price * item.qty).toFixed(2);
+    return `<div class="rp-row"><span>${item.qty}x ${item.menu_name}</span><span>${lineTotal}</span></div>
+            ${opts ? `<div class="rp-opts">• ${opts}</div>` : ''}
+            ${item.note ? `<div class="rp-opts">📝 ${item.note}</div>` : ''}`;
+  }).join('');
+
+  document.getElementById('receiptPreview').innerHTML = `
+    <div class="rp-name">🍵 ${escHtml(shop.name || 'GLONGNOM')} 🍵</div>
+    <div class="rp-sub">มัทฉะคราฟท์สดใหม่</div>
+    ${shop.phone ? `<div class="rp-sub">Tel: ${escHtml(shop.phone)}</div>` : ''}
+    <hr class="rp-s">
+    <div class="rp-meta">${dateStr}&nbsp;&nbsp;${timeStr}</div>
+    <div class="rp-meta">Order <b>#${order.order_no}</b> | Delivery</div>
+    <hr class="rp-d">
+    <div class="rp-meta"><b>ชื่อ:</b> ${order.customer_name}</div>
+    <div class="rp-meta"><b>โทร:</b> ${order.customer_phone}</div>
+    <div class="rp-meta"><b>ส่งที่:</b> ${order.customer_address}</div>
+    <div class="rp-meta">📝 ${order.note}</div>
+    <hr class="rp-d">
+    ${itemsHTML}
+    <hr class="rp-d">
+    <hr class="rp-s">
+    <div class="rp-total"><span>รวมทั้งหมด</span><span>${order.total_price.toFixed(2)} ฿</span></div>
+    <hr class="rp-s">
+    <div class="rp-thanks">ขอบคุณที่อุดหนุนนะคะ ♡</div>
+    <div class="rp-thanks">กลับมาอีกนะคะ 🌿</div>
+    <div class="rp-thanks-sm">@glongnom_matcha</div>
+  `;
+}
+
+function triggerTestPrint() {
+  testPrintReceipt(shopConfig);
+}
+
+// ── UTILITIES ──
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// Close modals on backdrop click
+['editModal','deleteModal','previewModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => {
+    if (e.target === document.getElementById(id)) closeModal(id);
+  });
+});
+
+init();
+</script>
+</body>
+</html>

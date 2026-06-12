@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Glongnom Admin — Purchase Orders</title>
+  <link rel="stylesheet" href="/css/design-system.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--bg); color: var(--text-primary);
+    }
+
+    /* ---- TOPBAR ---- */
+    .topbar { background: var(--surface-warm); border-bottom: 1.5px solid var(--border); box-shadow: var(--shadow-xs); height: 52px; display: flex; align-items: center; padding: 0 16px; position: fixed; top: 0; left: 0; right: 0; z-index: 1100; gap: 12px; }
+    .topbar-hamburger { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--brown-dark); padding: 4px 6px; flex-shrink: 0; line-height: 1; }
+    .topbar-hamburger:hover { color: var(--brown-mid); }
+    .topbar-brand { font-family: 'Sarabun', system-ui, sans-serif; font-weight: 700; font-size: var(--text-base); color: var(--brown-dark); white-space: nowrap; }
+    .topbar-page-label { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }
+    .topbar-spacer { flex: 1; }
+
+    /* ---- SIDEBAR ---- */
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(61,28,2,0.35); z-index: 1150; }
+    .sidebar-backdrop.show { display: block; }
+    #sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 260px; background: var(--surface-warm); border-right: 1.5px solid var(--border); box-shadow: var(--shadow-lg); z-index: 1200; transform: translateX(-100%); transition: transform 0.3s ease; display: flex; flex-direction: column; }
+    #sidebar.open { transform: translateX(0); }
+    .sidebar-header { height: 60px; display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--pink-accent); flex-shrink: 0; }
+    .sidebar-header .sb-brand { font-family: 'Sarabun', system-ui, sans-serif; font-weight: 800; font-size: 16px; color: var(--brown-dark); flex: 1; }
+    .sidebar-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 4px; }
+    .sidebar-close:hover { color: var(--brown-dark); }
+    .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; }
+    .sidebar-nav a { display: block; text-decoration: none; padding: 12px 20px; font-size: 14px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); border-left: 3px solid transparent; transition: background 0.15s, color 0.15s; }
+    .sidebar-nav a:hover { background: var(--surface); color: var(--brown-mid); }
+    .sidebar-nav a.active { background: var(--pink-soft); color: var(--brown-dark); border-left-color: var(--pink-deep); }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+    .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+    .sidebar-user-info { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .sidebar-signout { width: 100%; padding: 9px 14px; border-radius: var(--radius-pill); border: 1.5px solid var(--border); background: none; font-size: 13px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); cursor: pointer; transition: background 0.2s, color 0.2s; }
+    .sidebar-signout:hover { background: var(--error-light); color: var(--error); border-color: var(--error); }
+
+    /* ---- LAYOUT ---- */
+    body { padding-top: 52px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: var(--space-3); }
+    .page-header h1 { font-size: var(--text-2xl); font-weight: 700; color: var(--text-primary); }
+
+    /* ---- BUTTONS ---- */
+    .btn { padding: 9px 18px; border-radius: var(--radius-pill); border: none; font-size: var(--text-base); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; cursor: pointer; transition: background 0.2s; }
+    .btn-primary       { background: var(--brown-dark); color: #fff; }
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-ghost         { background: var(--surface-warm); color: var(--text-secondary); border: 1.5px solid var(--border); }
+    .btn-ghost:hover   { background: var(--pink-soft); }
+    .btn-danger        { background: var(--error-light); color: var(--error); border: 1.5px solid rgba(192,57,43,0.3); }
+    .btn-danger:hover  { background: #ffd5d5; }
+    .btn-danger-solid  { background: #dc2626; color: #fff; border: none; }
+    .btn-danger-solid:hover { background: #b91c1c; }
+    .btn-blue          { background: #dbeafe; color: #1d4ed8; border: 1.5px solid #93c5fd; }
+    .btn-blue:hover    { background: #bfdbfe; }
+    .btn-amber         { background: #fffbeb; color: #92400e; border: 1.5px solid #fcd34d; }
+    .btn-amber:hover   { background: #fef3c7; }
+    .btn-sm { padding: 5px 12px; font-size: 13px; }
+    .btn-back { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; color: var(--text-secondary); font-size: var(--text-sm); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; cursor: pointer; padding: 4px 0; margin-bottom: var(--space-4); }
+    .btn-back:hover { color: var(--brown-dark); }
+
+    /* ---- STATUS PILLS ---- */
+    .status-pill { display: inline-flex; align-items: center; border-radius: var(--radius-pill); padding: 3px 10px; font-size: var(--text-xs); font-weight: 600; white-space: nowrap; }
+    .status-draft      { background: #f3f4f6; color: #6b7280; }
+    .status-submitted  { background: #dbeafe; color: #1d4ed8; }
+    .status-partial    { background: #fffbeb; color: #92400e; }
+    .status-received   { background: #d1fae5; color: #065f46; }
+    .status-cancelled  { background: #fee2e2; color: #b91c1c; }
+
+    /* ---- TABLE ---- */
+    .table-wrap { background: var(--surface); border-radius: var(--radius-md); border: 1.5px solid var(--border); overflow-x: auto; box-shadow: var(--shadow-sm); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { background: var(--surface-warm); padding: var(--space-3) var(--space-4); text-align: left; font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1.5px solid var(--border); white-space: nowrap; }
+    thead th:last-child { text-align: right; }
+    tbody td { padding: 14px var(--space-4); font-size: var(--text-base); border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--pink-soft); }
+
+    /* ---- PO DETAIL VIEW ---- */
+    .detail-view { display: none; }
+    .detail-view.active { display: block; }
+    .list-view { display: block; }
+    .list-view.hidden { display: none; }
+
+    .detail-card { background: var(--surface-warm); border-radius: var(--radius-lg); border: 1.5px solid var(--border); padding: var(--space-6); margin-bottom: var(--space-5); box-shadow: var(--shadow-sm); }
+    .detail-card-title { font-size: var(--text-lg); font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-4); }
+    .detail-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); }
+    .detail-meta-item { display: flex; flex-direction: column; gap: 4px; }
+    .detail-meta-label { font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .detail-meta-value { font-size: var(--text-base); font-weight: 600; color: var(--text-primary); }
+    .detail-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--border); }
+
+    /* ---- LINE ITEM TABLE IN DETAIL ---- */
+    .line-items-table { width: 100%; border-collapse: collapse; }
+    .line-items-table th { font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 12px; text-align: left; border-bottom: 1.5px solid var(--border); background: var(--surface-warm); }
+    .line-items-table td { padding: 12px 12px; font-size: var(--text-base); border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .line-items-table tr:last-child td { border-bottom: none; }
+
+    /* ---- PO LINE ITEM BUILDER (in create modal) ---- */
+    .po-line-header { display: grid; grid-template-columns: 2fr 1fr 80px 110px 1fr 28px; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+    .po-line-header span { font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .po-line-row { display: grid; grid-template-columns: 2fr 1fr 80px 110px 1fr 28px; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .po-line-row select, .po-line-row input { width: 100%; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: 'Sarabun', system-ui, sans-serif; background: var(--surface); color: var(--text-primary); outline: none; }
+    .po-line-row select:focus, .po-line-row input:focus { border-color: var(--pink-deep); box-shadow: 0 0 0 2px rgba(255,133,161,0.18); }
+    .po-line-row .unit-text { font-size: 12px; color: var(--text-muted); }
+    .po-remove-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 50%; transition: background 0.15s, color 0.15s; }
+    .po-remove-btn:hover { background: var(--error-light); color: var(--error); }
+    @media (max-width: 640px) {
+      /* Stack each line item into a labeled card instead of hiding fields */
+      .po-line-header { display: none; }
+      .po-line-row {
+        grid-template-columns: 1fr auto;
+        grid-template-areas: "ing remove" "qty unit" "price note";
+        gap: 6px;
+        border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+        padding: 10px; margin-bottom: 10px;
+      }
+      .po-line-row > select                { grid-area: ing; }
+      .po-line-row > input:nth-of-type(1)  { grid-area: qty; }
+      .po-line-row > .unit-text             { grid-area: unit; align-self: center; }
+      .po-line-row > input:nth-of-type(2)  { grid-area: price; }
+      .po-line-row > input:nth-of-type(3)  { grid-area: note; }
+      .po-line-row > .po-remove-btn         { grid-area: remove; justify-self: end; }
+
+      .page-header h1 { font-size: var(--text-xl); }
+      .table-wrap thead th, .table-wrap tbody td { padding: 10px 8px; font-size: 13px; }
+
+      /* PO list table — keep PO# / Supplier / Status / Actions (hide Items / Created) */
+      .table-wrap table:not(.line-items-table):not(.receive-table) th:nth-child(4),
+      .table-wrap table:not(.line-items-table):not(.receive-table) td:nth-child(4),
+      .table-wrap table:not(.line-items-table):not(.receive-table) th:nth-child(5),
+      .table-wrap table:not(.line-items-table):not(.receive-table) td:nth-child(5) { display: none; }
+
+      /* Line items table (detail view) — keep Ingredient / Ordered / Received / Unit Cost */
+      .line-items-table th:nth-child(2), .line-items-table td:nth-child(2),
+      .line-items-table th:nth-child(5), .line-items-table td:nth-child(5),
+      .line-items-table th:nth-child(7), .line-items-table td:nth-child(7) { display: none; }
+
+      .modal { padding: var(--space-5); }
+      .form-row { flex-direction: column; gap: 0; }
+    }
+
+    /* ---- RECEIVE TABLE ---- */
+    .receive-table { width: 100%; border-collapse: collapse; }
+    .receive-table th { font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 10px; text-align: left; border-bottom: 1.5px solid var(--border); background: var(--surface-warm); white-space: nowrap; }
+    .receive-table td { padding: 10px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .receive-table tr:last-child td { border-bottom: none; }
+    .receive-table input { width: 100%; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: 'Sarabun', system-ui, sans-serif; background: var(--surface); outline: none; }
+    .receive-table input:focus { border-color: var(--pink-deep); }
+    .receive-summary { margin-top: var(--space-4); padding: var(--space-4); background: var(--surface); border-radius: var(--radius-sm); border: 1.5px solid var(--border); font-size: var(--text-sm); color: var(--text-secondary); }
+    .receive-summary strong { color: var(--text-primary); font-size: var(--text-base); }
+
+    /* ---- MODALS ---- */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(61,28,2,0.25); z-index: 2000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; visibility: hidden; transition: opacity 0.22s ease, visibility 0.22s; padding: var(--space-4); }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; visibility: visible; }
+    .modal { background: var(--surface-warm); border-radius: var(--radius-lg); padding: var(--space-8); width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto; border: 1.5px solid var(--border); box-shadow: var(--shadow-lg); transform: scale(0.96) translateY(8px); transition: transform 0.22s ease, opacity 0.22s ease; opacity: 0; }
+    .modal-overlay.show .modal { transform: scale(1) translateY(0); opacity: 1; }
+    .modal h2 { font-size: var(--text-xl); font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .modal .subtitle { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: var(--space-5); }
+    .form-group { margin-bottom: var(--space-4); }
+    .form-group label { display: block; font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+    .form-group select, .form-group input, .form-group textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: var(--text-base); font-family: 'Sarabun', system-ui, sans-serif; background: var(--surface); color: var(--text-primary); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+    .form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: var(--pink-deep); box-shadow: 0 0 0 3px rgba(255,133,161,0.18); }
+    .form-group textarea { resize: vertical; min-height: 72px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: var(--space-6); flex-wrap: wrap; }
+    .modal .msg { border-radius: var(--radius-sm); padding: 10px 14px; font-size: var(--text-sm); margin-bottom: var(--space-4); display: none; }
+    .modal .msg.error   { background: #fff0f0; border: 1px solid #ffc0c0; color: var(--error); display: block; }
+
+    /* ---- CONFIRM MODAL ---- */
+    .confirm-modal { background: var(--surface-warm); border-radius: var(--radius-lg); padding: var(--space-8); width: 100%; max-width: 460px; border: 1.5px solid var(--border); box-shadow: var(--shadow-lg); transform: scale(0.96) translateY(8px); transition: transform 0.22s ease, opacity 0.22s ease; opacity: 0; }
+    .modal-overlay.show .confirm-modal { transform: scale(1) translateY(0); opacity: 1; }
+    .confirm-modal h2 { font-size: var(--text-xl); font-weight: 700; margin-bottom: var(--space-3); color: var(--text-primary); }
+    .confirm-modal p  { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: var(--space-5); line-height: 1.6; }
+    .warning-banner { background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: var(--radius-sm); padding: 10px 14px; font-size: var(--text-sm); color: #92400e; margin-bottom: var(--space-4); }
+
+    /* ---- TOAST ---- */
+    .toast { position: fixed; bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); right: var(--space-6); background: var(--brown-dark); color: #fff; padding: var(--space-3) var(--space-5); border-radius: var(--radius-pill); font-size: var(--text-base); z-index: 9999; opacity: 0; transform: translateY(12px); transition: all 0.3s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { background: var(--error); }
+
+    /* ---- EMPTY STATE ---- */
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: var(--text-sm); }
+    .empty-state span { font-size: 32px; display: block; margin-bottom: var(--space-3); }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <button class="topbar-hamburger" onclick="openSidebar()" aria-label="Open menu">&#9776;</button>
+  <span class="topbar-brand">Glongnom POS</span>
+  <span class="topbar-page-label">/ Purchase Orders</span>
+  <div class="topbar-spacer"></div>
+</div>
+
+<!-- Sidebar Backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<!-- Sidebar Drawer -->
+<aside id="sidebar" role="navigation" aria-label="Admin navigation">
+  <div class="sidebar-header">
+    <span class="sb-brand">Glongnom POS</span>
+    <button class="sidebar-close" onclick="closeSidebar()" aria-label="Close menu">&times;</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-group-label">Management</div>
+    <a href="/admin/orders.html">&#129534; Order Queue</a>
+    <a href="/admin/">&#128203; Menu Management</a>
+    <a href="/admin/options.html">&#9881;&#65039; Options</a>
+    <a href="/admin/customers.html">&#127919; Customers</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Inventory</div>
+    <a href="/admin/inventory.html">&#128230; Inventory</a>
+    <a href="/admin/suppliers.html">&#128666; Suppliers</a>
+    <a href="/admin/purchase-orders.html" class="active">&#128722; Purchases</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Analysis</div>
+    <a href="/admin/dashboard.html">&#128202; Dashboard</a>
+    <a href="/admin/reports.html">&#128202; Reports</a>
+    <a href="/admin/accounting.html">&#128210; Accounting</a>
+    <a href="/admin/finance.html">&#128200; Finance</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Setting</div>
+    <a href="/admin/users.html">&#128101; Staff</a>
+    <a href="/admin/printer.html">&#128424;&#65039; Printers</a>
+  </nav>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user-info" id="sidebarUserInfo">Loading…</div>
+    <button class="sidebar-signout" onclick="Auth.signOut()">Sign Out</button>
+  </div>
+</aside>
+
+
+<!-- ══════════════════════════════════════ LIST VIEW -->
+<div class="container">
+
+  <div id="listView" class="list-view">
+    <div class="page-header">
+      <h1>Purchase Orders</h1>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <input type="text" id="poSearch" placeholder="Search PO# or supplier…"
+               oninput="filterPOs(this.value)"
+               style="padding:7px 14px;border:1.5px solid var(--border);border-radius:var(--radius-pill);font-size:var(--text-sm);font-family:'Sarabun',system-ui,sans-serif;background:var(--surface);color:var(--text-primary);outline:none;min-width:220px;transition:border-color 0.2s;"
+               onfocus="this.style.borderColor='var(--pink-deep)'" onblur="this.style.borderColor='var(--border)'" />
+        <button class="btn btn-primary" onclick="openCreateModal()">+ New PO</button>
+      </div>
+    </div>
+
+    <div class="error-banner" id="loadErrorBanner">
+      <span class="error-banner-msg">Failed to load purchase orders — check your connection.</span>
+      <button class="error-banner-retry" onclick="loadPOs()">Retry</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>PO#</th>
+            <th>Supplier</th>
+            <th>Status</th>
+            <th>Items</th>
+            <th>Created</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="poTableBody">
+          <tr><td colspan="6"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="6"><div class="skeleton skeleton-row"></div></td></tr>
+          <tr><td colspan="6"><div class="skeleton skeleton-row"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div><!-- /listView -->
+
+
+  <!-- ══════════════════════════════════════ DETAIL VIEW -->
+  <div id="detailView" class="detail-view">
+
+    <button class="btn-back" onclick="showListView()">&#8592; Back to Purchase Orders</button>
+
+    <div class="detail-card" id="detailCard">
+      <div class="detail-card-title" id="detailTitle">Purchase Order</div>
+      <div class="detail-meta-grid" id="detailMeta"></div>
+      <div class="detail-actions" id="detailActions"></div>
+    </div>
+
+    <div style="font-size:var(--text-sm);font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">
+      Line Items
+    </div>
+    <div class="table-wrap" style="margin-bottom:var(--space-6);">
+      <table class="line-items-table">
+        <thead>
+          <tr>
+            <th>Ingredient</th>
+            <th>Unit</th>
+            <th>Ordered</th>
+            <th>Received</th>
+            <th>Remaining</th>
+            <th>Unit Cost</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="detailLineItems"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /detailView -->
+
+</div><!-- /container -->
+
+
+<!-- ══════════════════════════════════════ CREATE / EDIT PO MODAL -->
+<div class="modal-overlay" id="createModal" onclick="handleOverlayClick(event, 'createModal')">
+  <div class="modal">
+    <h2>New Purchase Order</h2>
+    <p class="subtitle">Select a supplier and add line items.</p>
+    <div class="msg" id="createModalMsg"></div>
+
+    <div class="form-group">
+      <label for="poSupplierSelect">Supplier <span style="color:var(--error)">*</span></label>
+      <select id="poSupplierSelect">
+        <option value="">— Select a supplier —</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom:var(--space-4);">
+      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-secondary);margin-bottom:10px;">
+        Line Items <span style="color:var(--error)">*</span>
+      </div>
+
+      <!-- Column headers -->
+      <div class="po-line-header">
+        <span>วัตถุดิบ</span>
+        <span>จำนวน (หน่วยซื้อ)</span>
+        <span>หน่วย</span>
+        <span>ราคา / หน่วยซื้อ (฿)</span>
+        <span>หมายเหตุ</span>
+        <span></span>
+      </div>
+
+      <div id="poLineItems"></div>
+
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="addLineItem()">
+        + Add item
+      </button>
+    </div>
+
+    <div class="form-group">
+      <label for="poNotes">PO Notes (optional)</label>
+      <textarea id="poNotes" placeholder="Delivery instructions, payment terms, etc."></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('createModal')">Cancel</button>
+      <button class="btn btn-ghost" onclick="saveCreateModal('draft')">Save as Draft</button>
+      <button class="btn btn-primary" id="createSubmitBtn" onclick="saveCreateModal('submitted')">Submit PO</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════ RECEIVE GOODS MODAL -->
+<div class="modal-overlay" id="receiveModal" onclick="handleOverlayClick(event, 'receiveModal')">
+  <div class="modal" style="max-width:780px;">
+    <h2>Receive Goods</h2>
+    <p class="subtitle" id="receiveModalSubtitle">Enter quantities actually received for this delivery.</p>
+    <div class="msg" id="receiveModalMsg"></div>
+
+    <div style="overflow-x:auto;">
+      <table class="receive-table">
+        <thead>
+          <tr>
+            <th>วัตถุดิบ</th>
+            <th>หน่วยซื้อ</th>
+            <th>สั่ง</th>
+            <th>รับแล้ว</th>
+            <th>รับครั้งนี้ (หน่วยซื้อ)</th>
+            <th>ราคา / หน่วยซื้อ (฿)</th>
+            <th>หมายเหตุ</th>
+          </tr>
+        </thead>
+        <tbody id="receiveTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="receive-summary" id="receiveSummary"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('receiveModal')">Cancel</button>
+      <button class="btn btn-primary" id="receiveConfirmBtn" onclick="confirmReceive()">Confirm Receipt</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════ CANCEL PO MODAL -->
+<div class="modal-overlay" id="cancelModal" onclick="handleOverlayClick(event, 'cancelModal')">
+  <div class="confirm-modal">
+    <h2 id="cancelModalTitle">Cancel Purchase Order?</h2>
+    <p id="cancelModalMsg"></p>
+    <div class="modal-actions" style="justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeModal('cancelModal')">Keep PO</button>
+      <button class="btn btn-danger-solid" onclick="confirmCancel()">Yes, Cancel PO</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─────────────────────────────────── SIDEBAR
+  function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebarBackdrop').classList.add('show'); document.body.style.overflow = 'hidden'; }
+  function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarBackdrop').classList.remove('show'); document.body.style.overflow = ''; }
+
+  // ─────────────────────────────────── STATE
+  let currentUser    = null;
+  let purchaseOrders = [];
+  let suppliers      = [];
+  let ingredients    = [];
+  let currentPO      = null;
+  let cancellingPO   = null;
+  let receivingPO    = null;
+  let lineItemCount  = 0;
+  let searchQuery    = '';
+
+  // ─────────────────────────────────── INIT
+  async function init() {
+    const profile = await Auth.require(['admin', 'manager']);
+    if (!profile) return;
+    currentUser = profile;
+    document.getElementById('sidebarUserInfo').textContent =
+      (profile.name || '') + (profile.email ? ' · ' + profile.email : '');
+
+    // Load reference data + POs in parallel
+    await Promise.all([loadSuppliers(), loadIngredients()]);
+    await loadPOs();
+  }
+
+  // ─────────────────────────────────── REFERENCE DATA
+  async function loadSuppliers() {
+    const { data } = await supabase
+      .from('suppliers')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('name');
+    suppliers = data || [];
+
+    // Populate supplier dropdown in create modal
+    const sel = document.getElementById('poSupplierSelect');
+    sel.innerHTML = '<option value="">— Select a supplier —</option>' +
+      suppliers.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+  }
+
+  async function loadIngredients() {
+    const { data } = await supabase
+      .from('ingredients')
+      .select('id, name, unit, big_unit, units_per_big, cost_per_big, cost_per_unit')
+      .eq('is_active', true)
+      .order('name');
+    ingredients = data || [];
+  }
+
+  // ── Unit helpers ─────────────────────────────────────────────
+  function ingBigUnit(ing)     { return ing?.big_unit || ing?.unit || ''; }
+  function ingUpb(ing)         { return parseFloat(ing?.units_per_big) > 0 ? parseFloat(ing?.units_per_big) : 1; }
+  // Use cost_per_big only — no fallback to cost_per_unit * upb which
+  // can differ from the inventory display when cost_per_unit has old precision.
+  function ingCostBig(ing)     { return parseFloat(ing?.cost_per_big) || 0; }
+  function toSmallQty(bigQty, upb)  { return bigQty * upb; }
+  function toBigQty(smallQty, upb)  { return upb > 0 ? smallQty / upb : smallQty; }
+  function toSmallCost(bigCost, upb) { return upb > 0 ? bigCost / upb : bigCost; }
+  function toBigCost(smallCost, upb) { return smallCost * upb; }
+
+  // ─────────────────────────────────── LOAD POs
+  async function loadPOs() {
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .select(`
+        id, status, notes, created_at, received_at,
+        suppliers ( id, name ),
+        purchase_order_items ( id )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      document.getElementById('loadErrorBanner').classList.add('show');
+      showToast('Error loading purchase orders', true);
+      return;
+    }
+    document.getElementById('loadErrorBanner').classList.remove('show');
+    purchaseOrders = data || [];
+    filterPOs(searchQuery);
+  }
+
+  // ─────────────────────────────────── SEARCH / FILTER
+  function filterPOs(q) {
+    searchQuery = (q || '').trim().toLowerCase();
+    const list = !searchQuery ? purchaseOrders : purchaseOrders.filter(po => {
+      const shortId  = po.id.substring(0, 8).toLowerCase();
+      const supplier = (po.suppliers?.name || '').toLowerCase();
+      const status   = (po.status || '').toLowerCase();
+      return shortId.includes(searchQuery) || supplier.includes(searchQuery) || status.includes(searchQuery);
+    });
+    renderPOTable(list);
+  }
+
+  // ─────────────────────────────────── RENDER LIST
+  function renderPOTable(list) {
+    const rows  = list !== undefined ? list : purchaseOrders;
+    const tbody = document.getElementById('poTableBody');
+    if (!rows.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="empty-state">
+            <span>&#128722;</span>
+            ${searchQuery ? 'No POs matching "' + searchQuery + '"' : 'No purchase orders yet — click <strong>+ New PO</strong> to create one.'}
+          </td>
+        </tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(po => {
+      const shortId    = po.id.substring(0, 8).toUpperCase();
+      const supplier   = po.suppliers?.name || '—';
+      const itemCount  = po.purchase_order_items?.length || 0;
+      const created    = fmtDate(po.created_at);
+      const statusHtml = statusPill(po.status);
+
+      return `
+        <tr>
+          <td style="font-family:monospace;font-weight:700;color:var(--brown-dark);">
+            <span style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;"
+                  onclick="viewPO('${po.id}')">${shortId}</span>
+          </td>
+          <td>${escHtml(supplier)}</td>
+          <td>${statusHtml}</td>
+          <td>${itemCount}</td>
+          <td style="color:var(--text-muted);font-size:13px;">${created}</td>
+          <td style="text-align:right;">
+            <div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;">
+              ${renderListActions(po)}
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  function renderListActions(po) {
+    const id = po.id;
+    switch (po.status) {
+      case 'draft':
+        return `
+          <button class="btn btn-ghost btn-sm" onclick="viewPO('${id}')">View</button>
+          <button class="btn btn-blue btn-sm" onclick="submitPO('${id}')">Submit</button>
+          <button class="btn btn-danger btn-sm" onclick="openCancelModal('${id}', 'draft', '${escAttr(po.suppliers?.name || '')}')">Cancel</button>`;
+      case 'submitted':
+        return `
+          <button class="btn btn-ghost btn-sm" onclick="viewPO('${id}')">View</button>
+          <button class="btn btn-primary btn-sm" onclick="openReceiveModal('${id}')">Receive Goods</button>
+          <button class="btn btn-danger btn-sm" onclick="openCancelModal('${id}', 'submitted', '${escAttr(po.suppliers?.name || '')}')">Cancel</button>`;
+      case 'partial':
+        return `
+          <button class="btn btn-ghost btn-sm" onclick="viewPO('${id}')">View</button>
+          <button class="btn btn-amber btn-sm" onclick="openReceiveModal('${id}')">Receive Remaining</button>`;
+      default:
+        return `<button class="btn btn-ghost btn-sm" onclick="viewPO('${id}')">View</button>`;
+    }
+  }
+
+  // ─────────────────────────────────── STATUS PILL
+  function statusPill(status) {
+    const map = {
+      draft:      'Draft',
+      submitted:  'Submitted',
+      partial:    'Partial',
+      received:   'Received',
+      cancelled:  'Cancelled',
+    };
+    return `<span class="status-pill status-${status}">${map[status] || status}</span>`;
+  }
+
+  // ─────────────────────────────────── DETAIL VIEW
+  async function viewPO(poId) {
+    // Fetch full PO with line items
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .select(`
+        id, status, notes, created_at, received_at,
+        suppliers ( id, name ),
+        purchase_order_items (
+          id, quantity_ordered, quantity_received, unit_cost, notes,
+          ingredients ( id, name, unit, big_unit, units_per_big )
+        )
+      `)
+      .eq('id', poId)
+      .single();
+
+    if (error || !data) { showToast('Failed to load PO details', true); return; }
+    currentPO = data;
+
+    // Build header meta
+    const shortId = data.id.substring(0, 8).toUpperCase();
+    document.getElementById('detailTitle').textContent = 'PO #' + shortId;
+
+    document.getElementById('detailMeta').innerHTML = `
+      <div class="detail-meta-item">
+        <span class="detail-meta-label">Supplier</span>
+        <span class="detail-meta-value">${escHtml(data.suppliers?.name || '—')}</span>
+      </div>
+      <div class="detail-meta-item">
+        <span class="detail-meta-label">Status</span>
+        <span class="detail-meta-value">${statusPill(data.status)}</span>
+      </div>
+      <div class="detail-meta-item">
+        <span class="detail-meta-label">Created</span>
+        <span class="detail-meta-value">${fmtDate(data.created_at)}</span>
+      </div>
+      ${data.received_at ? `
+        <div class="detail-meta-item">
+          <span class="detail-meta-label">Received</span>
+          <span class="detail-meta-value">${fmtDate(data.received_at)}</span>
+        </div>` : ''}
+      ${data.notes ? `
+        <div class="detail-meta-item" style="grid-column:1/-1;">
+          <span class="detail-meta-label">Notes</span>
+          <span class="detail-meta-value" style="font-weight:400;">${escHtml(data.notes)}</span>
+        </div>` : ''}`;
+
+    // Build action buttons for detail view
+    let actionsHtml = '';
+    switch (data.status) {
+      case 'draft':
+        actionsHtml = `
+          <button class="btn btn-blue" onclick="submitPO('${data.id}')">Submit PO</button>
+          <button class="btn btn-danger" onclick="openCancelModal('${data.id}', 'draft', '${escAttr(data.suppliers?.name || '')}')">Cancel PO</button>`;
+        break;
+      case 'submitted':
+        actionsHtml = `
+          <button class="btn btn-primary" onclick="openReceiveModal('${data.id}')">Receive Goods</button>
+          <button class="btn btn-danger" onclick="openCancelModal('${data.id}', 'submitted', '${escAttr(data.suppliers?.name || '')}')">Cancel PO</button>`;
+        break;
+      case 'partial':
+        actionsHtml = `
+          <button class="btn btn-amber" onclick="openReceiveModal('${data.id}')">Receive Remaining</button>`;
+        break;
+    }
+    document.getElementById('detailActions').innerHTML = actionsHtml;
+
+    // Build line items table — display in big units
+    const items = data.purchase_order_items || [];
+    document.getElementById('detailLineItems').innerHTML = items.length
+      ? items.map(item => {
+          const ing  = item.ingredients || {};
+          const upb  = parseFloat(ing.units_per_big) > 0 ? parseFloat(ing.units_per_big) : 1;
+          const bUnit = ing.big_unit || ing.unit || '—';
+          const ordBig  = toBigQty(item.quantity_ordered,  upb);
+          const recBig  = toBigQty(item.quantity_received, upb);
+          const remBig  = ordBig - recBig;
+          const costBig = toBigCost(parseFloat(item.unit_cost || 0), upb);
+          const fmtQty  = (n) => parseFloat(n.toFixed(4)).toLocaleString('en-US', { maximumFractionDigits: 4 });
+          return `
+            <tr>
+              <td style="font-weight:600;">${escHtml(ing.name || '—')}</td>
+              <td style="color:var(--text-muted);">${escHtml(bUnit)}</td>
+              <td>${fmtQty(ordBig)}</td>
+              <td>${fmtQty(recBig)}</td>
+              <td style="color:${remBig > 0.001 ? '#92400e' : '#16a34a'};font-weight:600;">${fmtQty(remBig)}</td>
+              <td>฿${costBig.toFixed(2)}</td>
+              <td style="font-size:13px;color:var(--text-muted);">${escHtml(item.notes || '—')}</td>
+            </tr>`;
+        }).join('')
+      : '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">No line items.</td></tr>';
+
+    showDetailView();
+  }
+
+  function showDetailView() {
+    document.getElementById('listView').classList.add('hidden');
+    document.getElementById('detailView').classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  function showListView() {
+    document.getElementById('detailView').classList.remove('active');
+    document.getElementById('listView').classList.remove('hidden');
+    currentPO = null;
+  }
+
+  // ─────────────────────────────────── CREATE PO MODAL
+  function openCreateModal() {
+    document.getElementById('poLineItems').innerHTML = '';
+    document.getElementById('poNotes').value = '';
+    document.getElementById('createModalMsg').className = 'msg';
+    lineItemCount = 0;
+    // Start with one blank row
+    addLineItem();
+    openModal('createModal');
+  }
+
+  function addLineItem() {
+    lineItemCount++;
+    const rowId = 'poli_' + lineItemCount;
+    const opts  = ingredients.map(i =>
+      `<option value="${i.id}"
+               data-big-unit="${escAttr(ingBigUnit(i))}"
+               data-upb="${ingUpb(i)}"
+               data-cost-big="${ingCostBig(i)}">${escHtml(i.name)}</option>`
+    ).join('');
+
+    const row = document.createElement('div');
+    row.className    = 'po-line-row';
+    row.id           = rowId;
+    row.dataset.upb  = '1';
+    row.innerHTML = `
+      <select onchange="updateUnitCell(this, '${rowId}')">
+        <option value="">— เลือกวัตถุดิบ —</option>
+        ${opts}
+      </select>
+      <input type="number" placeholder="จำนวน" min="0.001" step="any" />
+      <span class="unit-text" id="${rowId}_unit">—</span>
+      <input type="number" placeholder="0.00" min="0" step="0.01" />
+      <input type="text" placeholder="หมายเหตุ (opt.)" />
+      <button class="po-remove-btn" onclick="removeLineItem('${rowId}')" title="Remove row">&times;</button>`;
+
+    document.getElementById('poLineItems').appendChild(row);
+  }
+
+  function removeLineItem(rowId) {
+    const el = document.getElementById(rowId);
+    if (el) el.remove();
+  }
+
+  function updateUnitCell(select, rowId) {
+    const opt      = select.options[select.selectedIndex];
+    const row      = document.getElementById(rowId);
+    const unitSpan = document.getElementById(rowId + '_unit');
+    const bigUnit  = opt?.dataset?.bigUnit  || '—';
+    const upb      = parseFloat(opt?.dataset?.upb)      || 1;
+    const costBig  = parseFloat(opt?.dataset?.costBig)  || 0;
+
+    if (unitSpan) unitSpan.textContent = bigUnit;
+    if (row)      row.dataset.upb = upb;
+
+    // Auto-fill unit cost with the stored cost_per_big
+    if (costBig > 0) {
+      const inputs = row?.querySelectorAll('input[type="number"]');
+      if (inputs?.[1]) inputs[1].value = costBig.toFixed(2);
+    }
+  }
+
+  async function saveCreateModal(status) {
+    const msgEl      = document.getElementById('createModalMsg');
+    const supplierId = document.getElementById('poSupplierSelect').value;
+    const notes      = document.getElementById('poNotes').value.trim() || null;
+
+    msgEl.className = 'msg';
+
+    if (!supplierId) {
+      msgEl.textContent = 'Please select a supplier.';
+      msgEl.className   = 'msg error';
+      return;
+    }
+
+    // Collect line items — user inputs in big units, store in small units
+    const rows     = document.querySelectorAll('#poLineItems .po-line-row');
+    const lineItems = [];
+
+    for (const row of rows) {
+      const sel      = row.querySelector('select');
+      const inputs   = row.querySelectorAll('input[type="number"], input[type="text"]');
+      const ingId    = sel?.value;
+      const qtyBig   = parseFloat(inputs[0]?.value);
+      const costBig  = parseFloat(inputs[1]?.value);
+      const rowNotes = inputs[2]?.value.trim() || null;
+      const upb      = parseFloat(row.dataset.upb) || 1;
+
+      if (!ingId) continue; // skip blank rows
+
+      if (isNaN(qtyBig) || qtyBig <= 0) {
+        msgEl.textContent = 'กรุณากรอกจำนวนที่ถูกต้องสำหรับทุกรายการ';
+        msgEl.className   = 'msg error';
+        return;
+      }
+
+      // Convert big → small units for storage
+      const qtySmall  = toSmallQty(qtyBig, upb);
+      const costSmall = isNaN(costBig) ? 0 : toSmallCost(costBig, upb);
+
+      lineItems.push({ ingredient_id: ingId, quantity_ordered: qtySmall, unit_cost: costSmall, notes: rowNotes });
+    }
+
+    if (!lineItems.length) {
+      msgEl.textContent = 'Please add at least one line item.';
+      msgEl.className   = 'msg error';
+      return;
+    }
+
+    const btn = document.getElementById('createSubmitBtn');
+    const draftBtn = btn.previousElementSibling; // "Save as Draft" button
+    btn.disabled = true;
+    if (draftBtn) draftBtn.disabled = true;
+
+    const showErr = (msg) => {
+      msgEl.textContent = msg;
+      msgEl.className   = 'msg error';
+      msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      btn.disabled = false;
+      if (draftBtn) draftBtn.disabled = false;
+    };
+
+    // Insert PO header
+    const { data: po, error: poErr } = await supabase
+      .from('purchase_orders')
+      .insert({ supplier_id: supplierId, status, notes })
+      .select('id')
+      .single();
+
+    if (poErr) { showErr('สร้าง PO ไม่สำเร็จ: ' + poErr.message); return; }
+
+    // Insert line items
+    const { error: itemErr } = await supabase
+      .from('purchase_order_items')
+      .insert(lineItems.map(li => ({ ...li, purchase_order_id: po.id, quantity_received: 0 })));
+
+    if (itemErr) { showErr('สร้าง PO สำเร็จ แต่บันทึกรายการไม่ได้: ' + itemErr.message); return; }
+
+    btn.disabled = false;
+    if (draftBtn) draftBtn.disabled = false;
+
+    closeModal('createModal');
+    showToast(status === 'submitted' ? '✓ ส่ง PO เรียบร้อย' : '✓ บันทึก Draft เรียบร้อย');
+    await loadPOs();
+  }
+
+  // ─────────────────────────────────── SUBMIT PO
+  async function submitPO(poId) {
+    const { error } = await supabase
+      .from('purchase_orders')
+      .update({ status: 'submitted' })
+      .eq('id', poId);
+
+    if (error) { showToast('Error: ' + error.message, true); return; }
+    showToast('PO submitted');
+    await loadPOs();
+    // If viewing this PO in detail, refresh it
+    if (currentPO?.id === poId) await viewPO(poId);
+  }
+
+  // ─────────────────────────────────── RECEIVE GOODS MODAL
+  async function openReceiveModal(poId) {
+    // Fetch PO with full line item detail
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .select(`
+        id, status,
+        suppliers ( name ),
+        purchase_order_items (
+          id, quantity_ordered, quantity_received, unit_cost, notes,
+          ingredients ( id, name, unit, big_unit, units_per_big )
+        )
+      `)
+      .eq('id', poId)
+      .single();
+
+    if (error || !data) { showToast('Failed to load PO', true); return; }
+    receivingPO = data;
+
+    const shortId = data.id.substring(0, 8).toUpperCase();
+    document.getElementById('receiveModalSubtitle').textContent =
+      `PO #${shortId} — ${data.suppliers?.name || '—'} — ${data.status.charAt(0).toUpperCase() + data.status.slice(1)}`;
+    document.getElementById('receiveModalMsg').className = 'msg';
+
+    // Display in big units; store upb on each input for conversion at submit
+    const items = data.purchase_order_items || [];
+    document.getElementById('receiveTableBody').innerHTML = items.map((item, idx) => {
+      const ing        = item.ingredients || {};
+      const upb        = parseFloat(ing.units_per_big) > 0 ? parseFloat(ing.units_per_big) : 1;
+      const bUnit      = ing.big_unit || ing.unit || '—';
+      const ordBig     = toBigQty(item.quantity_ordered,  upb);
+      const recBig     = toBigQty(item.quantity_received, upb);
+      const remBig     = ordBig - recBig;
+      const costBig    = toBigCost(parseFloat(item.unit_cost || 0), upb);
+      const fmtQ       = (n) => parseFloat(n.toFixed(6));
+      return `
+        <tr>
+          <td style="font-weight:600;">${escHtml(ing.name || '—')}</td>
+          <td style="color:var(--text-muted);">${escHtml(bUnit)}</td>
+          <td>${parseFloat(ordBig.toFixed(4))}</td>
+          <td>${parseFloat(recBig.toFixed(4))}</td>
+          <td>
+            <input type="number" id="recv_qty_${idx}"
+                   value="${remBig > 0.0001 ? parseFloat(remBig.toFixed(6)) : 0}"
+                   min="0" step="any"
+                   data-item-id="${item.id}"
+                   data-remaining-big="${remBig}"
+                   data-upb="${upb}"
+                   oninput="updateReceiveSummary()" />
+          </td>
+          <td>
+            <input type="number" id="recv_cost_${idx}"
+                   value="${costBig.toFixed(2)}"
+                   min="0" step="0.01"
+                   data-upb="${upb}" />
+          </td>
+          <td>
+            <input type="text" id="recv_notes_${idx}"
+                   placeholder="Optional" value="${escHtml(item.notes || '')}" />
+          </td>
+        </tr>`;
+    }).join('');
+
+    updateReceiveSummary();
+    openModal('receiveModal');
+  }
+
+  function updateReceiveSummary() {
+    const items   = receivingPO?.purchase_order_items || [];
+    let totalItems = 0;
+    let totalCost  = 0;
+
+    items.forEach((item, idx) => {
+      const qty  = parseFloat(document.getElementById('recv_qty_'  + idx)?.value) || 0;
+      const cost = parseFloat(document.getElementById('recv_cost_' + idx)?.value) || 0;
+      if (qty > 0) {
+        totalItems++;
+        totalCost += qty * cost;
+      }
+    });
+
+    document.getElementById('receiveSummary').innerHTML =
+      `Receiving <strong>${totalItems}</strong> ingredient type${totalItems !== 1 ? 's' : ''}. ` +
+      `Total value: <strong>฿${totalCost.toFixed(2)}</strong>`;
+  }
+
+  async function confirmReceive() {
+    const msgEl = document.getElementById('receiveModalMsg');
+    const btn   = document.getElementById('receiveConfirmBtn');
+    const items = receivingPO?.purchase_order_items || [];
+
+    msgEl.className = 'msg';
+
+    const showErr = (msg) => {
+      msgEl.textContent = msg;
+      msgEl.className   = 'msg error';
+      msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
+    // Collect rows — convert big units → small units for the RPC
+    // No JS over-receipt guard here; the DB function handles it and gives a clear error.
+    const receipts = [];
+    for (let idx = 0; idx < items.length; idx++) {
+      const item      = items[idx];
+      const qtyInput  = document.getElementById('recv_qty_'  + idx);
+      const costInput = document.getElementById('recv_cost_' + idx);
+      const qtyBig    = parseFloat(qtyInput?.value)  || 0;
+      const costBig   = parseFloat(costInput?.value) || 0;
+      const upb       = parseFloat(qtyInput?.dataset?.upb) || 1;
+      if (qtyBig <= 0) continue;
+      receipts.push({
+        item_id:      item.id,
+        qty_received: toSmallQty(qtyBig, upb),
+        unit_cost:    toSmallCost(costBig, upb),
+      });
+    }
+
+    if (!receipts.length) {
+      showErr('กรุณากรอกจำนวนรับอย่างน้อย 1 รายการ');
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'กำลังบันทึก…';
+
+    try {
+      const { error } = await supabase.rpc('receive_po_items', {
+        p_po_id:    receivingPO.id,
+        p_receipts: receipts,
+      });
+
+      btn.disabled    = false;
+      btn.textContent = 'Confirm Receipt';
+
+      if (error) { showErr('บันทึกไม่สำเร็จ: ' + error.message); return; }
+
+      // Close modal + show toast immediately so user sees feedback right away
+      const poId        = receivingPO.id;
+      const currentPoId = currentPO?.id;
+      closeModal('receiveModal');
+      showToast('รับสินค้าเรียบร้อย ✓');
+      receivingPO = null;
+
+      // Refresh list and detail in background
+      await loadPOs();
+      if (currentPoId) await viewPO(currentPoId);
+
+      // Record expense in accounting ledger
+      const { error: accErr } = await supabase.rpc('record_purchase_expense', { p_po_id: poId });
+      if (accErr) console.warn('Accounting record failed:', accErr.message);
+
+    } catch (ex) {
+      btn.disabled    = false;
+      btn.textContent = 'Confirm Receipt';
+      showErr('เกิดข้อผิดพลาดที่ไม่คาดคิด: ' + (ex.message || ex));
+    }
+  }
+
+  // ─────────────────────────────────── CANCEL PO
+  function openCancelModal(poId, status, supplierName) {
+    cancellingPO = poId;
+    document.getElementById('cancelModalTitle').textContent = 'Cancel Purchase Order?';
+
+    const msgEl = document.getElementById('cancelModalMsg');
+    if (status === 'draft') {
+      msgEl.textContent = 'Cancel this draft PO? It will be permanently voided.';
+    } else {
+      msgEl.textContent = supplierName
+        ? `This PO was sent to ${supplierName}. Cancelling voids it in this system. Have you notified them?`
+        : 'This PO was already submitted. Cancelling voids it in this system.';
+    }
+
+    openModal('cancelModal');
+  }
+
+  async function confirmCancel() {
+    if (!cancellingPO) return;
+
+    const { error } = await supabase
+      .from('purchase_orders')
+      .update({ status: 'cancelled' })
+      .eq('id', cancellingPO);
+
+    closeModal('cancelModal');
+
+    if (error) { showToast('Error: ' + error.message, true); return; }
+    showToast('PO cancelled');
+    cancellingPO = null;
+
+    await loadPOs();
+    if (currentPO) {
+      // Refresh detail if we're viewing this PO; otherwise go back to list
+      if (currentPO.id === cancellingPO) showListView();
+      else await viewPO(currentPO.id);
+    }
+  }
+
+  // ─────────────────────────────────── MODAL HELPERS
+  function openModal(id)  { document.getElementById(id).classList.add('show'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+  function handleOverlayClick(e, id) { if (e.target === e.currentTarget) closeModal(id); }
+
+  // ─────────────────────────────────── TOAST
+  function showToast(msg, isError = false) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.toggle('error', isError);
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  // ─────────────────────────────────── FORMAT HELPERS
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function escAttr(s) { return String(s).replace(/'/g, "\\'"); }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  // ─────────────────────────────────── BOOT
+  init();
+</script>
+
+</body>
+</html>

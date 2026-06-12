@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Glongnom Admin — Suppliers</title>
+  <link rel="stylesheet" href="/css/design-system.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--bg); color: var(--text-primary);
+    }
+
+    /* ---- TOPBAR ---- */
+    .topbar {
+      background: var(--surface-warm); border-bottom: 1.5px solid var(--border);
+      box-shadow: var(--shadow-xs); height: 52px; display: flex; align-items: center;
+      padding: 0 16px; position: fixed; top: 0; left: 0; right: 0; z-index: 1100; gap: 12px;
+    }
+    .topbar-hamburger { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--brown-dark); padding: 4px 6px; flex-shrink: 0; line-height: 1; }
+    .topbar-hamburger:hover { color: var(--brown-mid); }
+    .topbar-brand { font-family: 'Sarabun', system-ui, sans-serif; font-weight: 700; font-size: var(--text-base); color: var(--brown-dark); white-space: nowrap; }
+    .topbar-page-label { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }
+    .topbar-spacer { flex: 1; }
+
+    /* ---- SIDEBAR ---- */
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(61,28,2,0.35); z-index: 1150; }
+    .sidebar-backdrop.show { display: block; }
+    #sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; width: 260px;
+      background: var(--surface-warm); border-right: 1.5px solid var(--border);
+      box-shadow: var(--shadow-lg); z-index: 1200;
+      transform: translateX(-100%); transition: transform 0.3s ease;
+      display: flex; flex-direction: column;
+    }
+    #sidebar.open { transform: translateX(0); }
+    .sidebar-header { height: 60px; display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--pink-accent); flex-shrink: 0; }
+    .sidebar-header .sb-brand { font-family: 'Sarabun', system-ui, sans-serif; font-weight: 800; font-size: 16px; color: var(--brown-dark); flex: 1; }
+    .sidebar-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 4px; }
+    .sidebar-close:hover { color: var(--brown-dark); }
+    .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; }
+    .sidebar-nav a { display: block; text-decoration: none; padding: 12px 20px; font-size: 14px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); border-left: 3px solid transparent; transition: background 0.15s, color 0.15s; }
+    .sidebar-nav a:hover { background: var(--surface); color: var(--brown-mid); }
+    .sidebar-nav a.active { background: var(--pink-soft); color: var(--brown-dark); border-left-color: var(--pink-deep); }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+    .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+    .sidebar-user-info { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .sidebar-signout { width: 100%; padding: 9px 14px; border-radius: var(--radius-pill); border: 1.5px solid var(--border); background: none; font-size: 13px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); cursor: pointer; transition: background 0.2s, color 0.2s; }
+    .sidebar-signout:hover { background: var(--error-light); color: var(--error); border-color: var(--error); }
+
+    /* ---- LAYOUT ---- */
+    body { padding-top: 52px; }
+    .container { max-width: 1000px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+    .page-header h1 { font-size: var(--text-2xl); font-weight: 700; color: var(--text-primary); }
+
+    /* ---- BUTTONS ---- */
+    .btn { padding: 9px 18px; border-radius: var(--radius-pill); border: none; font-size: var(--text-base); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; cursor: pointer; transition: background 0.2s; }
+    .btn-primary       { background: var(--brown-dark); color: #fff; }
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-ghost         { background: var(--surface-warm); color: var(--text-secondary); border: 1.5px solid var(--border); }
+    .btn-ghost:hover   { background: var(--pink-soft); }
+    .btn-danger        { background: var(--error-light); color: var(--error); border: 1.5px solid rgba(192,57,43,0.3); }
+    .btn-danger:hover  { background: #ffd5d5; }
+    .btn-danger-solid  { background: #dc2626; color: #fff; border: none; }
+    .btn-danger-solid:hover { background: #b91c1c; }
+    .btn-sm { padding: 5px 12px; font-size: 13px; }
+
+    /* ---- TABLE ---- */
+    .table-wrap { background: var(--surface); border-radius: var(--radius-md); border: 1.5px solid var(--border); overflow-x: auto; box-shadow: var(--shadow-sm); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { background: var(--surface-warm); padding: var(--space-3) var(--space-4); text-align: left; font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1.5px solid var(--border); white-space: nowrap; }
+    thead th:last-child { text-align: right; }
+    tbody td { padding: 14px var(--space-4); font-size: var(--text-base); border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--pink-soft); }
+
+    /* ---- STATUS ---- */
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .dot-active   { background: #22c55e; }
+    .dot-inactive { background: #d1d5db; }
+
+    /* ---- ACTION OVERFLOW DROPDOWN ---- */
+    .actions-cell { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+    .action-menu-wrap { position: relative; display: inline-block; }
+    .action-dropdown { display: none; position: fixed; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); min-width: 180px; z-index: 500; overflow: hidden; }
+    .action-dropdown.open { display: block; }
+    .action-dropdown button { display: block; width: 100%; text-align: left; padding: 10px 14px; border: none; background: none; font-size: var(--text-sm); cursor: pointer; color: var(--text-primary); font-family: 'Sarabun', system-ui, sans-serif; }
+    .action-dropdown button:hover { background: var(--surface-warm); }
+    .action-dropdown button.danger { color: var(--error); }
+    .action-dropdown .divider { height: 1px; background: var(--border); margin: 4px 0; }
+    .action-menu-btn { background: var(--surface-warm); border: 1.5px solid var(--border); border-radius: var(--radius-pill); font-size: 13px; letter-spacing: 2px; padding: 4px 10px; cursor: pointer; font-family: inherit; color: var(--text-muted); transition: background 0.15s; }
+    .action-menu-btn:hover { background: var(--pink-soft); color: var(--brown-dark); }
+
+    /* ---- MODAL ---- */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(61,28,2,0.25); z-index: 2000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; visibility: hidden; transition: opacity 0.22s ease, visibility 0.22s; padding: var(--space-4); }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; visibility: visible; }
+    .modal { background: var(--surface-warm); border-radius: var(--radius-lg); padding: var(--space-8); width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; border: 1.5px solid var(--border); box-shadow: var(--shadow-lg); transform: scale(0.96) translateY(8px); transition: transform 0.22s ease, opacity 0.22s ease; opacity: 0; }
+    .modal-overlay.show .modal { transform: scale(1) translateY(0); opacity: 1; }
+    .modal h2 { font-size: var(--text-xl); font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .modal .subtitle { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: var(--space-6); }
+    .form-group { margin-bottom: var(--space-4); }
+    .form-group label { display: block; font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: var(--text-base); font-family: 'Sarabun', system-ui, sans-serif; background: var(--surface); color: var(--text-primary); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--pink-deep); box-shadow: 0 0 0 3px rgba(255,133,161,0.18); }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-row { display: flex; gap: var(--space-3); }
+    .form-row .form-group { flex: 1; }
+    .toggle-row { display: flex; align-items: center; gap: 10px; }
+    .toggle-row label { margin-bottom: 0; font-size: var(--text-base); font-weight: 500; color: var(--text-primary); cursor: pointer; }
+    .toggle-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--brown-dark); cursor: pointer; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: var(--space-6); }
+    .modal .msg { border-radius: var(--radius-sm); padding: 10px 14px; font-size: var(--text-sm); margin-bottom: var(--space-4); display: none; }
+    .modal .msg.error   { background: #fff0f0; border: 1px solid #ffc0c0; color: var(--error); display: block; }
+    .modal .msg.success { background: #f0fff4; border: 1px solid #9ae6b4; color: #276749; display: block; }
+
+    /* ---- WARNING BANNER inside modal ---- */
+    .warning-banner { background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: var(--radius-sm); padding: 10px 14px; font-size: var(--text-sm); color: #92400e; margin-bottom: var(--space-4); display: flex; gap: 8px; align-items: flex-start; }
+    .warning-banner .warn-icon { flex-shrink: 0; font-size: 16px; line-height: 1.4; }
+
+    /* ---- CONFIRM MODAL ---- */
+    .confirm-modal { background: var(--surface-warm); border-radius: var(--radius-lg); padding: var(--space-8); width: 100%; max-width: 420px; text-align: center; border: 1.5px solid var(--border); box-shadow: var(--shadow-lg); transform: scale(0.96) translateY(8px); transition: transform 0.22s ease, opacity 0.22s ease; opacity: 0; }
+    .modal-overlay.show .confirm-modal { transform: scale(1) translateY(0); opacity: 1; }
+    .confirm-modal .confirm-icon { font-size: 40px; margin-bottom: 12px; }
+    .confirm-modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); }
+    .confirm-modal p  { font-size: 14px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.6; }
+    .confirm-modal .confirm-name { font-weight: 700; color: var(--text-primary); background: var(--pink-soft); border-radius: var(--radius-sm); padding: 8px 14px; display: inline-block; margin-bottom: 20px; font-size: 15px; }
+
+    /* ---- TOAST ---- */
+    .toast { position: fixed; bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); right: var(--space-6); background: var(--brown-dark); color: #fff; padding: var(--space-3) var(--space-5); border-radius: var(--radius-pill); font-size: var(--text-base); z-index: 9999; opacity: 0; transform: translateY(12px); transition: all 0.3s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { background: var(--error); }
+
+    /* ---- EMPTY STATE ---- */
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: var(--text-sm); }
+    .empty-state span { font-size: 32px; display: block; margin-bottom: var(--space-3); }
+
+    /* ---- RESPONSIVE / MOBILE ---- */
+    @media (max-width: 640px) {
+      #sidebar { width: min(82vw, 300px); }
+      .container { padding: var(--space-5) var(--space-4); }
+      .topbar-page-label { display: none; }
+      .page-header { flex-wrap: wrap; gap: var(--space-3); }
+      .page-header h1 { font-size: var(--text-xl); }
+
+      /* Compact table — keep Name / Status / Actions, hide Contact / Phone / Email */
+      table thead th:nth-child(2), table tbody td:nth-child(2),
+      table thead th:nth-child(3), table tbody td:nth-child(3),
+      table thead th:nth-child(4), table tbody td:nth-child(4) { display: none; }
+      table thead th, table tbody td { padding: 10px var(--space-3); font-size: var(--text-sm); }
+
+      .modal, .confirm-modal { padding: var(--space-5); max-height: 88vh; }
+      .form-row { flex-direction: column; }
+      .modal-actions { flex-wrap: wrap; }
+      .modal-actions .btn { flex: 1; }
+
+      .toast { left: var(--space-4); right: var(--space-4); text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <button class="topbar-hamburger" onclick="openSidebar()" aria-label="Open menu">&#9776;</button>
+  <span class="topbar-brand">Glongnom POS</span>
+  <span class="topbar-page-label">/ Suppliers</span>
+  <div class="topbar-spacer"></div>
+</div>
+
+<!-- Sidebar Backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<!-- Sidebar Drawer -->
+<aside id="sidebar" role="navigation" aria-label="Admin navigation">
+  <div class="sidebar-header">
+    <span class="sb-brand">Glongnom POS</span>
+    <button class="sidebar-close" onclick="closeSidebar()" aria-label="Close menu">&times;</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-group-label">Management</div>
+    <a href="/admin/orders.html">&#129534; Order Queue</a>
+    <a href="/admin/">&#128203; Menu Management</a>
+    <a href="/admin/options.html">&#9881;&#65039; Options</a>
+    <a href="/admin/customers.html">&#127919; Customers</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Inventory</div>
+    <a href="/admin/inventory.html">&#128230; Inventory</a>
+    <a href="/admin/suppliers.html" class="active">&#128666; Suppliers</a>
+    <a href="/admin/purchase-orders.html">&#128722; Purchases</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Analysis</div>
+    <a href="/admin/dashboard.html">&#128202; Dashboard</a>
+    <a href="/admin/reports.html">&#128202; Reports</a>
+    <a href="/admin/accounting.html">&#128210; Accounting</a>
+    <a href="/admin/finance.html">&#128200; Finance</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Setting</div>
+    <a href="/admin/users.html">&#128101; Staff</a>
+    <a href="/admin/printer.html">&#128424;&#65039; Printers</a>
+  </nav>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user-info" id="sidebarUserInfo">Loading…</div>
+    <button class="sidebar-signout" onclick="Auth.signOut()">Sign Out</button>
+  </div>
+</aside>
+
+<div class="container">
+  <div class="page-header">
+    <h1>Suppliers</h1>
+    <button class="btn btn-primary" onclick="openSupplierModal(null)">+ Add Supplier</button>
+  </div>
+
+  <div class="error-banner" id="loadErrorBanner">
+    <span class="error-banner-msg">Failed to load suppliers — check your connection.</span>
+    <button class="error-banner-retry" onclick="loadSuppliers()">Retry</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Contact</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Status</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="suppliersTableBody">
+        <tr><td colspan="6"><div class="skeleton skeleton-row"></div></td></tr>
+        <tr><td colspan="6"><div class="skeleton skeleton-row"></div></td></tr>
+        <tr><td colspan="6"><div class="skeleton skeleton-row"></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- Add / Edit Supplier Modal -->
+<div class="modal-overlay" id="supplierModal" onclick="handleOverlayClick(event, 'supplierModal')">
+  <div class="modal">
+    <h2 id="supplierModalTitle">Add Supplier</h2>
+    <p class="subtitle" id="supplierModalSubtitle">Fill in the supplier's details.</p>
+    <div class="msg" id="supplierModalMsg"></div>
+
+    <input type="hidden" id="supplierId" />
+
+    <div class="form-group">
+      <label for="supplierName">Name <span style="color:var(--error);">*</span></label>
+      <input type="text" id="supplierName" placeholder="e.g. Doi Chaang Coffee Co." />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="supplierContact">Contact Person</label>
+        <input type="text" id="supplierContact" placeholder="e.g. Khun Somsak" />
+      </div>
+      <div class="form-group">
+        <label for="supplierPhone">Phone</label>
+        <input type="tel" id="supplierPhone" placeholder="e.g. 02-xxx-xxxx" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="supplierEmail">Email</label>
+      <input type="email" id="supplierEmail" placeholder="supplier@example.com" />
+    </div>
+
+    <div class="form-group">
+      <label for="supplierNotes">Notes (optional)</label>
+      <textarea id="supplierNotes" placeholder="Payment terms, delivery schedule, etc."></textarea>
+    </div>
+
+    <div class="form-group">
+      <div class="toggle-row">
+        <input type="checkbox" id="supplierActive" checked />
+        <label for="supplierActive">Active supplier</label>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('supplierModal')">Cancel</button>
+      <button class="btn btn-primary" id="supplierSaveBtn" onclick="saveSupplier()">Save</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" id="deleteModal" onclick="handleOverlayClick(event, 'deleteModal')">
+  <div class="confirm-modal">
+    <div class="confirm-icon">&#128465;</div>
+    <h2 id="deleteModalTitle">Delete Supplier?</h2>
+    <p id="deleteModalMsg">This action cannot be undone.</p>
+    <div class="confirm-name" id="deleteSupplierName">—</div>
+    <div class="modal-actions" style="justify-content:center;" id="deleteModalActions">
+      <button class="btn btn-ghost" onclick="closeModal('deleteModal')">Cancel</button>
+      <button class="btn btn-danger-solid" id="deleteConfirmBtn" onclick="confirmDelete()">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─────────────────────────────────── SIDEBAR
+  function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebarBackdrop').classList.add('show'); document.body.style.overflow = 'hidden'; }
+  function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarBackdrop').classList.remove('show'); document.body.style.overflow = ''; }
+
+  // ─────────────────────────────────── STATE
+  let suppliers     = [];
+  let currentUser   = null;
+  let editingId     = null;   // null = new, string = editing existing
+  let deletingId    = null;   // supplier being deleted/deactivated
+  let openDropId    = null;
+
+  // ─────────────────────────────────── INIT
+  async function init() {
+    const profile = await Auth.require(['admin', 'manager']);
+    if (!profile) return;
+    currentUser = profile;
+    document.getElementById('sidebarUserInfo').textContent =
+      (profile.name || '') + (profile.email ? ' · ' + profile.email : '');
+    await loadSuppliers();
+  }
+
+  // ─────────────────────────────────── DATA
+  async function loadSuppliers() {
+    const { data, error } = await supabase
+      .from('suppliers')
+      .select('*')
+      .order('name');
+
+    if (error) {
+      document.getElementById('loadErrorBanner').classList.add('show');
+      showToast('Error loading suppliers', true);
+      return;
+    }
+    document.getElementById('loadErrorBanner').classList.remove('show');
+    suppliers = data || [];
+    renderTable();
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('suppliersTableBody');
+    if (!suppliers.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="empty-state">
+            <span>&#128666;</span>
+            No suppliers yet — click <strong>+ Add Supplier</strong> to get started.
+          </td>
+        </tr>`;
+      return;
+    }
+
+    tbody.innerHTML = suppliers.map(s => {
+      const dropId = 'drop_' + s.id;
+      return `
+        <tr>
+          <td style="font-weight:600;">${escHtml(s.name)}</td>
+          <td style="color:var(--text-secondary);">${escHtml(s.contact_name || '—')}</td>
+          <td style="color:var(--text-secondary);">${escHtml(s.phone || '—')}</td>
+          <td style="font-size:13px;color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            ${s.email ? escHtml(s.email) : '—'}
+          </td>
+          <td>
+            <span class="status-dot ${s.is_active ? 'dot-active' : 'dot-inactive'}"></span>
+            ${s.is_active ? 'Active' : 'Inactive'}
+          </td>
+          <td>
+            <div class="actions-cell">
+              <button class="btn btn-ghost btn-sm"
+                      onclick="openSupplierModal('${s.id}')">Edit</button>
+              <div class="action-menu-wrap">
+                <button class="action-menu-btn"
+                        onclick="toggleDropdown(this, '${dropId}')"
+                        aria-label="More actions">&bull;&bull;&bull;</button>
+                <div class="action-dropdown" id="${dropId}">
+                  <button onclick="openDeactivateModal('${s.id}', '${escAttr(s.name)}', ${s.is_active}); closeAllDropdowns();">
+                    ${s.is_active ? '&#128683; Deactivate' : '&#9989; Activate'}
+                  </button>
+                  <div class="divider"></div>
+                  <button class="danger"
+                          onclick="openDeleteModal('${s.id}', '${escAttr(s.name)}'); closeAllDropdowns();">
+                    &#128465; Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ─────────────────────────────────── MODAL: ADD / EDIT
+  function openSupplierModal(supplierId) {
+    editingId = supplierId;
+    const isNew = !supplierId;
+
+    document.getElementById('supplierModalTitle').textContent    = isNew ? 'Add Supplier' : 'Edit Supplier';
+    document.getElementById('supplierModalSubtitle').textContent = isNew ? "Fill in the supplier's details." : "Update supplier information.";
+    document.getElementById('supplierModalMsg').className        = 'msg';
+    document.getElementById('supplierId').value = supplierId || '';
+
+    if (isNew) {
+      document.getElementById('supplierName').value    = '';
+      document.getElementById('supplierContact').value = '';
+      document.getElementById('supplierPhone').value   = '';
+      document.getElementById('supplierEmail').value   = '';
+      document.getElementById('supplierNotes').value   = '';
+      document.getElementById('supplierActive').checked = true;
+    } else {
+      const s = suppliers.find(x => x.id === supplierId);
+      if (!s) return;
+      document.getElementById('supplierName').value     = s.name          || '';
+      document.getElementById('supplierContact').value  = s.contact_name  || '';
+      document.getElementById('supplierPhone').value    = s.phone         || '';
+      document.getElementById('supplierEmail').value    = s.email         || '';
+      document.getElementById('supplierNotes').value    = s.notes         || '';
+      document.getElementById('supplierActive').checked = s.is_active !== false;
+    }
+
+    openModal('supplierModal');
+  }
+
+  async function saveSupplier() {
+    const btn    = document.getElementById('supplierSaveBtn');
+    const msgEl  = document.getElementById('supplierModalMsg');
+    const name   = document.getElementById('supplierName').value.trim();
+    const id     = document.getElementById('supplierId').value || null;
+
+    msgEl.className = 'msg';
+
+    if (!name) {
+      msgEl.textContent = 'Supplier name is required.';
+      msgEl.className   = 'msg error';
+      return;
+    }
+
+    const payload = {
+      name:         name,
+      contact_name: document.getElementById('supplierContact').value.trim() || null,
+      phone:        document.getElementById('supplierPhone').value.trim()   || null,
+      email:        document.getElementById('supplierEmail').value.trim()   || null,
+      notes:        document.getElementById('supplierNotes').value.trim()   || null,
+      is_active:    document.getElementById('supplierActive').checked,
+    };
+
+    btn.disabled    = true;
+    btn.textContent = 'Saving…';
+
+    let error;
+    if (id) {
+      ({ error } = await supabase.from('suppliers').update(payload).eq('id', id));
+    } else {
+      ({ error } = await supabase.from('suppliers').insert(payload));
+    }
+
+    btn.disabled    = false;
+    btn.textContent = 'Save';
+
+    if (error) {
+      msgEl.textContent = 'Save failed: ' + error.message;
+      msgEl.className   = 'msg error';
+      return;
+    }
+
+    closeModal('supplierModal');
+    showToast(id ? 'Supplier updated' : 'Supplier added');
+    await loadSuppliers();
+  }
+
+  // ─────────────────────────────────── MODAL: DEACTIVATE / ACTIVATE
+  function openDeactivateModal(supplierId, supplierName, currentlyActive) {
+    deletingId = supplierId;
+
+    // Re-use the delete modal structure but for soft deactivation
+    document.getElementById('deleteModalTitle').textContent = currentlyActive ? 'Deactivate Supplier?' : 'Activate Supplier?';
+    document.getElementById('deleteSupplierName').textContent = supplierName;
+
+    const msgEl = document.getElementById('deleteModalMsg');
+    if (currentlyActive) {
+      msgEl.innerHTML = 'Existing purchase orders linked to this supplier will not be affected.';
+    } else {
+      msgEl.textContent = 'This supplier will become visible and selectable for new purchase orders.';
+    }
+
+    // Swap action buttons for deactivate vs activate
+    const actionsEl = document.getElementById('deleteModalActions');
+    actionsEl.innerHTML = `
+      <button class="btn btn-ghost" onclick="closeModal('deleteModal')">Cancel</button>
+      <button class="btn btn-${currentlyActive ? 'danger' : 'primary'}"
+              onclick="confirmDeactivate(${currentlyActive})">
+        ${currentlyActive ? 'Deactivate' : 'Activate'}
+      </button>`;
+
+    openModal('deleteModal');
+  }
+
+  async function confirmDeactivate(deactivating) {
+    if (!deletingId) return;
+    const { error } = await supabase
+      .from('suppliers')
+      .update({ is_active: !deactivating })
+      .eq('id', deletingId);
+
+    closeModal('deleteModal');
+
+    if (error) { showToast('Error: ' + error.message, true); return; }
+    showToast(deactivating ? 'Supplier deactivated' : 'Supplier activated');
+    deletingId = null;
+    await loadSuppliers();
+  }
+
+  // ─────────────────────────────────── MODAL: DELETE
+  function openDeleteModal(supplierId, supplierName) {
+    deletingId = supplierId;
+
+    // Check whether this supplier has linked POs before showing the modal
+    checkAndOpenDeleteModal(supplierId, supplierName);
+  }
+
+  async function checkAndOpenDeleteModal(supplierId, supplierName) {
+    // Check for any POs linked to this supplier
+    const { count, error } = await supabase
+      .from('purchase_orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('supplier_id', supplierId);
+
+    document.getElementById('deleteSupplierName').textContent = supplierName;
+
+    if (!error && count > 0) {
+      // Has linked POs — offer deactivation instead
+      document.getElementById('deleteModalTitle').textContent  = 'Cannot Delete Supplier';
+      document.getElementById('deleteModalMsg').textContent    =
+        'This supplier has existing purchase orders. You can deactivate them instead to hide from future POs.';
+      document.getElementById('deleteModalActions').innerHTML = `
+        <button class="btn btn-ghost" onclick="closeModal('deleteModal')">Cancel</button>
+        <button class="btn btn-danger"
+                onclick="closeModal('deleteModal'); openDeactivateModal('${supplierId}', '${escAttr(supplierName)}', true);">
+          Deactivate Instead
+        </button>`;
+    } else {
+      // No linked POs — allow hard delete
+      document.getElementById('deleteModalTitle').textContent = 'Delete Supplier?';
+      document.getElementById('deleteModalMsg').textContent   = 'This action is permanent and cannot be undone.';
+      document.getElementById('deleteModalActions').innerHTML = `
+        <button class="btn btn-ghost" onclick="closeModal('deleteModal')">Cancel</button>
+        <button class="btn btn-danger-solid" onclick="confirmDelete()">Yes, Delete</button>`;
+    }
+
+    openModal('deleteModal');
+  }
+
+  async function confirmDelete() {
+    if (!deletingId) return;
+    const { error } = await supabase
+      .from('suppliers')
+      .delete()
+      .eq('id', deletingId);
+
+    closeModal('deleteModal');
+
+    if (error) { showToast('Delete failed: ' + error.message, true); return; }
+    showToast('Supplier deleted');
+    deletingId = null;
+    await loadSuppliers();
+  }
+
+  // ─────────────────────────────────── DROPDOWN HELPERS
+  function toggleDropdown(btn, id) {
+    const menu   = document.getElementById(id);
+    const isOpen = menu.classList.contains('open');
+    closeAllDropdowns();
+    if (!isOpen) {
+      const rect = btn.getBoundingClientRect();
+      menu.style.top  = (rect.bottom + 4) + 'px';
+      menu.style.left = Math.max(8, rect.right - 188) + 'px';
+      menu.classList.add('open');
+      openDropId = id;
+    }
+  }
+
+  function closeAllDropdowns() {
+    document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
+    openDropId = null;
+  }
+
+  document.addEventListener('click', e => {
+    if (openDropId && !e.target.closest('.action-menu-wrap')) closeAllDropdowns();
+  });
+
+  // ─────────────────────────────────── MODAL HELPERS
+  function openModal(id)  { document.getElementById(id).classList.add('show'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+  function handleOverlayClick(e, id) { if (e.target === e.currentTarget) closeModal(id); }
+
+  // ─────────────────────────────────── TOAST
+  function showToast(msg, isError = false) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.toggle('error', isError);
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  // ─────────────────────────────────── ESCAPE HELPERS
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function escAttr(s) {
+    return String(s).replace(/'/g, "\\'");
+  }
+
+  // ─────────────────────────────────── BOOT
+  init();
+</script>
+
+</body>
+</html>

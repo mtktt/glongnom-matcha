@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Glongnom Admin — Finance</title>
+  <link rel="stylesheet" href="/css/design-system.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Sarabun', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      padding-top: 52px;
+    }
+
+    /* ---- TOPBAR ---- */
+    .topbar { background: var(--surface-warm); border-bottom: 1.5px solid var(--border); box-shadow: var(--shadow-xs); height: 52px; display: flex; align-items: center; padding: 0 16px; position: fixed; top: 0; left: 0; right: 0; z-index: 1100; gap: 12px; }
+    .topbar-hamburger { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--brown-dark); padding: 4px 6px; flex-shrink: 0; line-height: 1; }
+    .topbar-hamburger:hover { color: var(--brown-mid); }
+    .topbar-brand { font-family: 'Sarabun', system-ui, sans-serif; font-weight: 700; font-size: var(--text-base); color: var(--brown-dark); white-space: nowrap; }
+    .topbar-page-label { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }
+    .topbar-spacer { flex: 1; }
+
+    /* ---- SIDEBAR ---- */
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(61,28,2,0.35); z-index: 1150; }
+    .sidebar-backdrop.show { display: block; }
+    #sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 260px; background: var(--surface-warm); border-right: 1.5px solid var(--border); box-shadow: var(--shadow-lg); z-index: 1200; transform: translateX(-100%); transition: transform 0.3s ease; display: flex; flex-direction: column; }
+    #sidebar.open { transform: translateX(0); }
+    .sidebar-header { height: 60px; display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--pink-accent); flex-shrink: 0; }
+    .sidebar-header .sb-brand { font-family: 'Sarabun', system-ui, sans-serif; font-weight: 800; font-size: 16px; color: var(--brown-dark); flex: 1; }
+    .sidebar-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 4px; }
+    .sidebar-close:hover { color: var(--brown-dark); }
+    .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; }
+    .sidebar-nav a { display: block; text-decoration: none; padding: 12px 20px; font-size: 14px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); border-left: 3px solid transparent; transition: background 0.15s, color 0.15s; }
+    .sidebar-nav a:hover { background: var(--surface); color: var(--brown-mid); }
+    .sidebar-nav a.active { background: var(--pink-soft); color: var(--brown-dark); border-left-color: var(--pink-deep); }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+    .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+    .sidebar-user-info { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .sidebar-signout { width: 100%; padding: 9px 14px; border-radius: var(--radius-pill); border: 1.5px solid var(--border); background: none; font-size: 13px; font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); cursor: pointer; transition: background 0.2s, color 0.2s; }
+    .sidebar-signout:hover { background: var(--error-light); color: var(--error); border-color: var(--error); }
+
+    /* ---- LAYOUT ---- */
+    .container { max-width: 1300px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); flex-wrap: wrap; gap: var(--space-3); }
+    .page-header h1 { font-size: var(--text-2xl); font-weight: 700; color: var(--text-primary); }
+
+    /* ---- BUTTONS ---- */
+    .btn { padding: 9px 18px; border-radius: var(--radius-pill); border: none; font-size: var(--text-base); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; cursor: pointer; transition: background 0.2s; }
+    .btn-primary       { background: var(--brown-dark); color: #fff; }
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-ghost         { background: var(--surface-warm); color: var(--text-secondary); border: 1.5px solid var(--border); }
+    .btn-ghost:hover   { background: var(--pink-soft); }
+    .btn-danger        { background: var(--error-light); color: var(--error); border: 1.5px solid rgba(192,57,43,0.3); }
+    .btn-danger:hover  { background: #ffd5d5; }
+    .btn-sm { padding: 5px 12px; font-size: 13px; }
+
+    /* ---- PERIOD PICKER ---- */
+    .filter-bar { display: flex; align-items: center; gap: 10px; margin-bottom: var(--space-6); flex-wrap: wrap; }
+    .period-picker { display: flex; gap: 2px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-pill); padding: 3px; }
+    .period-btn { padding: 5px 14px; border-radius: var(--radius-pill); border: none; background: none; font-size: var(--text-sm); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-muted); cursor: pointer; transition: background 0.18s, color 0.18s; white-space: nowrap; }
+    .period-btn.active { background: var(--brown-dark); color: #fff; }
+    .date-popover-wrap { position: relative; display: inline-block; }
+    .date-popover { display: none; position: absolute; top: calc(100% + 8px); left: 0; background: var(--surface-warm); border: 1.5px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); padding: 16px; min-width: 280px; z-index: 300; }
+    .date-popover.open { display: block; }
+    .date-popover-title { font-size: var(--text-xs); font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .date-range-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+    .date-range-row label { font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+    .date-range-row input[type="date"] { flex: 1; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: var(--text-sm); font-family: 'Sarabun', system-ui, sans-serif; background: var(--surface); color: var(--text-primary); outline: none; }
+    .date-range-row input[type="date"]:focus { border-color: var(--pink-deep); }
+    .date-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .preset-btn { padding: 4px 10px; border-radius: var(--radius-pill); border: 1.5px solid var(--border); background: var(--surface); font-size: var(--text-xs); font-weight: 600; font-family: 'Sarabun', system-ui, sans-serif; color: var(--text-secondary); cursor: pointer; }
+    .preset-btn:hover { background: var(--pink-soft); color: var(--brown-dark); }
+    .date-popover-apply { width: 100%; padding: 8px; border-radius: var(--radius-pill); border: none; background: var(--brown-dark); color: #fff; font-size: var(--text-sm); font-weight: 700; font-family: 'Sarabun', system-ui, sans-serif; cursor: pointer; }
+    .date-popover-apply:hover { background: var(--brown-mid); }
+
+    /* ---- TWO-COLUMN DESKTOP LAYOUT ---- */
+    .finance-grid {
+      display: grid;
+      grid-template-columns: 60fr 40fr;
+      gap: var(--space-6);
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .finance-grid { grid-template-columns: 1fr; }
+    }
+
+    /* PHONE (~375-430px) */
+    @media (max-width: 640px) {
+      .page-header h1 { font-size: var(--text-xl); }
+      .card { padding: var(--space-4); }
+      .pnl-row .pnl-val, .pnl-total-row .pnl-val { min-width: 90px; }
+      .pnl-total-row .pnl-val { font-size: var(--text-lg); }
+      .date-popover { min-width: unset; width: calc(100vw - 64px); max-width: 320px; }
+      .fc-row { flex-wrap: wrap; }
+      .fc-detail { white-space: normal; }
+      .modal { padding: var(--space-5); }
+      .form-row { flex-direction: column; gap: 0; }
+    }
+
+    /* ---- P&L CARD ---- */
+    .card {
+      background: var(--surface-warm);
+      border-radius: var(--radius-lg);
+      border: 1.5px solid var(--border);
+      padding: var(--space-6);
+      box-shadow: var(--shadow-sm);
+    }
+    .card-title {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--space-5);
+    }
+
+    /* P&L statement rows */
+    .pnl-section-header {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-family: 'Courier New', monospace;
+      padding: var(--space-3) 0 var(--space-2);
+      border-top: 1.5px solid var(--border);
+      margin-top: var(--space-3);
+    }
+    .pnl-section-header:first-child { border-top: none; margin-top: 0; }
+    .pnl-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 6px 0;
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+    .pnl-row .pnl-val {
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: var(--text-base);
+      min-width: 120px;
+      text-align: right;
+    }
+    .pnl-divider { height: 1.5px; background: var(--border); margin: var(--space-2) 0; }
+    .pnl-total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 10px 0 8px;
+      font-weight: 700;
+      font-size: var(--text-base);
+      color: var(--text-primary);
+    }
+    .pnl-total-row .pnl-val {
+      font-family: 'Courier New', monospace;
+      font-size: var(--text-xl);
+      font-weight: 800;
+      min-width: 120px;
+      text-align: right;
+    }
+    .pnl-pct-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 2px 0 8px;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    .pnl-pct-row span { font-family: 'Courier New', monospace; font-weight: 700; }
+
+    /* Net income chip */
+    .net-chip {
+      display: inline-block;
+      border-radius: var(--radius-pill);
+      padding: 4px 14px;
+      font-family: 'Courier New', monospace;
+      font-size: var(--text-xl);
+      font-weight: 800;
+    }
+    .net-positive { background: #d1fae5; color: #065f46; }
+    .net-negative { background: #fee2e2; color: #b91c1c; }
+
+    /* Skeleton for P&L lines */
+    .pnl-skeleton .skeleton-line { margin: 8px 0; }
+
+    /* ---- FIXED COSTS PANEL ---- */
+    .fc-list { display: flex; flex-direction: column; gap: var(--space-2); }
+    .fc-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px var(--space-4);
+    }
+    .fc-name   { flex: 1; font-weight: 600; font-size: var(--text-base); color: var(--text-primary); }
+    .fc-detail { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+    .fc-badge  { font-size: var(--text-xs); font-weight: 700; padding: 2px 8px; border-radius: var(--radius-pill); white-space: nowrap; }
+    .fc-active   { background: #d1fae5; color: #065f46; }
+    .fc-inactive { background: #f3f4f6; color: #6b7280; }
+    .fc-actions  { display: flex; gap: 4px; flex-shrink: 0; }
+
+    /* ---- MODALS ---- */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(61,28,2,0.25); z-index: 2000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; visibility: hidden; transition: opacity 0.22s ease, visibility 0.22s; padding: var(--space-4); }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; visibility: visible; }
+    .modal { background: var(--surface-warm); border-radius: var(--radius-lg); padding: var(--space-8); width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; border: 1.5px solid var(--border); box-shadow: var(--shadow-lg); transform: scale(0.96) translateY(8px); transition: transform 0.22s ease, opacity 0.22s ease; opacity: 0; }
+    .modal-overlay.show .modal { transform: scale(1) translateY(0); opacity: 1; }
+    .modal h2 { font-size: var(--text-xl); font-weight: 700; margin-bottom: 4px; color: var(--text-primary); }
+    .modal .subtitle { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: var(--space-6); }
+    .form-group { margin-bottom: var(--space-4); }
+    .form-group label { display: block; font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+    .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: var(--text-base); font-family: 'Sarabun', system-ui, sans-serif; background: var(--surface); color: var(--text-primary); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+    .form-group input:focus, .form-group select:focus { border-color: var(--pink-deep); box-shadow: 0 0 0 3px rgba(255,133,161,0.18); }
+    .form-row { display: flex; gap: var(--space-3); }
+    .form-row .form-group { flex: 1; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: var(--space-6); }
+    .modal .msg { border-radius: var(--radius-sm); padding: 10px 14px; font-size: var(--text-sm); margin-bottom: var(--space-4); display: none; }
+    .modal .msg.error   { background: #fff0f0; border: 1px solid #ffc0c0; color: var(--error); display: block; }
+
+    /* Toggle switch */
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+    .toggle-label { font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); }
+    .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: var(--border); border-radius: 24px; transition: 0.2s; }
+    .toggle-slider::before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+    .toggle-switch input:checked + .toggle-slider { background: #16a34a; }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+    /* ---- EMPTY / ERROR ---- */
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: var(--text-sm); }
+    .empty-state span { font-size: 28px; display: block; margin-bottom: var(--space-3); }
+
+    /* ---- TOAST ---- */
+    .toast { position: fixed; bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); right: var(--space-6); background: var(--brown-dark); color: #fff; padding: var(--space-3) var(--space-5); border-radius: var(--radius-pill); font-size: var(--text-base); z-index: 9999; opacity: 0; transform: translateY(12px); transition: all 0.3s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { background: var(--error); }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <button class="topbar-hamburger" onclick="openSidebar()" aria-label="Open menu">&#9776;</button>
+  <span class="topbar-brand">Glongnom POS</span>
+  <span class="topbar-page-label">/ Finance</span>
+  <div class="topbar-spacer"></div>
+</div>
+
+<!-- Sidebar Backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<!-- Sidebar Drawer -->
+<aside id="sidebar" role="navigation" aria-label="Admin navigation">
+  <div class="sidebar-header">
+    <span class="sb-brand">Glongnom POS</span>
+    <button class="sidebar-close" onclick="closeSidebar()" aria-label="Close menu">&times;</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-group-label">Management</div>
+    <a href="/admin/orders.html">&#129534; Order Queue</a>
+    <a href="/admin/">&#128203; Menu Management</a>
+    <a href="/admin/options.html">&#9881;&#65039; Options</a>
+    <a href="/admin/customers.html">&#127919; Customers</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Inventory</div>
+    <a href="/admin/inventory.html">&#128230; Inventory</a>
+    <a href="/admin/suppliers.html">&#128666; Suppliers</a>
+    <a href="/admin/purchase-orders.html">&#128722; Purchases</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Analysis</div>
+    <a href="/admin/dashboard.html">&#128202; Dashboard</a>
+    <a href="/admin/reports.html">&#128202; Reports</a>
+    <a href="/admin/accounting.html">&#128210; Accounting</a>
+    <a href="/admin/finance.html" class="active">&#128200; Finance</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-group-label">Setting</div>
+    <a href="/admin/users.html">&#128101; Staff</a>
+    <a href="/admin/printer.html">&#128424;&#65039; Printers</a>
+  </nav>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user-info" id="sidebarUserInfo">Loading…</div>
+    <button class="sidebar-signout" onclick="Auth.signOut()">Sign Out</button>
+  </div>
+</aside>
+
+
+<!-- ══════════════════════════════════════════════ MAIN CONTENT -->
+<div class="container">
+
+  <div class="page-header">
+    <h1>Finance</h1>
+  </div>
+
+  <!-- Period picker — no "Today"; minimum period is 1 week -->
+  <div class="filter-bar">
+    <div class="date-popover-wrap" id="finPopoverWrap">
+      <div class="period-picker">
+        <button class="period-btn" onclick="setPeriod('today', this)">Today</button>
+        <button class="period-btn" onclick="setPeriod('7d', this)">Last 7d</button>
+        <button class="period-btn active" onclick="setPeriod('30d', this)">Last 30d</button>
+        <button class="period-btn" onclick="toggleCustomPopover(this)">Custom</button>
+      </div>
+      <div class="date-popover" id="finDatePopover">
+        <div class="date-popover-title">Custom Date Range (min. 7 days)</div>
+        <div class="date-range-row">
+          <label>From</label>
+          <input type="date" id="finFromDate" />
+        </div>
+        <div class="date-range-row">
+          <label>To</label>
+          <input type="date" id="finToDate" />
+        </div>
+        <div class="date-presets">
+          <button class="preset-btn" onclick="applyPreset(7)">Last 7d</button>
+          <button class="preset-btn" onclick="applyPreset(14)">Last 14d</button>
+          <button class="preset-btn" onclick="applyPreset(30)">Last 30d</button>
+          <button class="preset-btn" onclick="applyPreset(90)">Last 90d</button>
+        </div>
+        <button class="date-popover-apply" onclick="applyCustomPeriod()">Apply</button>
+      </div>
+    </div>
+    <span id="periodLabel" style="font-size:var(--text-sm);color:var(--text-muted);"></span>
+  </div>
+
+  <!-- Two-column grid: P&L + Fixed Costs Manager -->
+  <div class="finance-grid">
+
+    <!-- LEFT: P&L Statement -->
+    <div class="card" style="background:#ffffff;">
+      <div class="card-title">P&amp;L Statement</div>
+
+      <!-- Skeleton while loading -->
+      <div id="plSkeleton" class="pnl-skeleton">
+        <div class="skeleton skeleton-line medium"></div>
+        <div class="skeleton skeleton-line short"></div>
+        <div class="skeleton skeleton-line medium"></div>
+        <div class="skeleton skeleton-line short"></div>
+        <div class="skeleton skeleton-line" style="width:80%;margin-top:16px;"></div>
+      </div>
+
+      <!-- P&L content (shown after load) -->
+      <div id="plContent" style="display:none;">
+
+        <!-- REVENUE -->
+        <div class="pnl-section-header">REVENUE</div>
+        <div class="pnl-row">
+          <span>Sales Revenue</span>
+          <span class="pnl-val" id="plRevenue">฿0.00</span>
+        </div>
+
+        <div class="pnl-divider"></div>
+
+        <!-- VARIABLE COSTS -->
+        <div class="pnl-section-header">VARIABLE COSTS (COGS)</div>
+        <div class="pnl-row">
+          <span>Cost of Goods Sold</span>
+          <span class="pnl-val" id="plCOGS">฿0.00</span>
+        </div>
+
+        <div class="pnl-divider"></div>
+
+        <!-- CONTRIBUTION MARGIN -->
+        <div class="pnl-total-row">
+          <span>CONTRIBUTION MARGIN</span>
+          <span class="pnl-val" id="plCM">฿0.00</span>
+        </div>
+        <div class="pnl-pct-row">
+          <span>Contribution Margin %</span>
+          <span id="plCMPct">0.0%</span>
+        </div>
+
+        <div class="pnl-divider"></div>
+
+        <!-- FIXED COSTS -->
+        <div class="pnl-section-header">FIXED COSTS</div>
+        <div id="plFixedCostRows"></div>
+        <div class="pnl-row" style="font-weight:700;color:var(--text-primary);">
+          <span>Total Fixed Costs</span>
+          <span class="pnl-val" id="plTotalFixed">฿0.00</span>
+        </div>
+
+        <div class="pnl-divider"></div>
+
+        <!-- NET INCOME -->
+        <div class="pnl-total-row" style="margin-top:var(--space-2);">
+          <span>NET INCOME</span>
+          <span id="plNetChip" class="net-chip net-positive">฿0.00</span>
+        </div>
+        <div class="pnl-pct-row">
+          <span>Net Margin %</span>
+          <span id="plNetPct">0.0%</span>
+        </div>
+
+      </div><!-- /plContent -->
+
+      <div id="plError" style="display:none;" class="empty-state">
+        <span>&#9888;</span>
+        <p id="plErrorMsg">Failed to load data</p>
+      </div>
+
+    </div><!-- /P&L card -->
+
+
+    <!-- RIGHT: Fixed Costs Manager -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4);">
+        <span class="card-title" style="margin-bottom:0;">Fixed Costs</span>
+        <button class="btn btn-primary btn-sm" onclick="openFCModal(null)">+ Add</button>
+      </div>
+
+      <div id="fcListSkeleton">
+        <div class="skeleton skeleton-row" style="margin-bottom:8px;"></div>
+        <div class="skeleton skeleton-row" style="margin-bottom:8px;"></div>
+        <div class="skeleton skeleton-row"></div>
+      </div>
+
+      <div class="fc-list" id="fcList" style="display:none;"></div>
+
+      <div id="fcEmpty" class="empty-state" style="display:none;">
+        <span>&#128176;</span>
+        No fixed costs yet — add rent, salaries, utilities, etc.
+      </div>
+
+    </div><!-- /Fixed Costs card -->
+
+  </div><!-- /finance-grid -->
+
+</div><!-- /container -->
+
+
+<!-- ══════════════════════════════════════════════ FIXED COST MODAL -->
+<div class="modal-overlay" id="fcModal" onclick="handleOverlayClick(event, 'fcModal')">
+  <div class="modal">
+    <h2 id="fcModalTitle">Add Fixed Cost</h2>
+    <p class="subtitle">Define a recurring fixed cost item.</p>
+    <div class="msg" id="fcModalMsg"></div>
+    <input type="hidden" id="fcId" />
+
+    <div class="form-group">
+      <label for="fcName">Name <span style="color:var(--error)">*</span></label>
+      <input type="text" id="fcName" placeholder="e.g. Rent, Staff Salary, Electricity" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="fcAmount">Amount (฿) <span style="color:var(--error)">*</span></label>
+        <input type="number" id="fcAmount" placeholder="0.00" min="0" step="0.01" />
+      </div>
+      <div class="form-group">
+        <label for="fcPeriod">Period</label>
+        <select id="fcPeriod">
+          <option value="monthly">Monthly</option>
+          <option value="weekly">Weekly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="fcEffectiveFrom">Effective From</label>
+        <input type="date" id="fcEffectiveFrom" />
+      </div>
+      <div class="form-group">
+        <label for="fcEffectiveTo">Effective To (optional)</label>
+        <input type="date" id="fcEffectiveTo" placeholder="Leave blank for ongoing" />
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <span class="toggle-label">Active</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="fcIsActive" checked />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('fcModal')">Cancel</button>
+      <button class="btn btn-primary" id="fcSaveBtn" onclick="saveFC()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+
+<!-- ══════════════════════════════════════════════ SCRIPTS -->
+<script>
+
+// ── STATE ──────────────────────────────────────────────────
+let currentUser = null;
+let fixedCosts  = [];   // full list from Supabase
+let period      = '30d';
+let customFrom  = '';
+let customTo    = '';
+
+// ── SIDEBAR ────────────────────────────────────────────────
+function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebarBackdrop').classList.add('show'); document.body.style.overflow = 'hidden'; }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarBackdrop').classList.remove('show'); document.body.style.overflow = ''; }
+
+// ── MODAL HELPERS ──────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function handleOverlayClick(e, id) { if (e.target === e.currentTarget) closeModal(id); }
+
+// ── TOAST ─────────────────────────────────────────────────
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.toggle('error', isError);
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── DATE / FORMAT HELPERS ──────────────────────────────────
+function toISO(d) {
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
+}
+function getDateRange() {
+  const today = new Date();
+  const t = toISO(today);
+  if (period === 'today')  return { from: t, to: t };
+  if (period === '7d')  { const f = new Date(today); f.setDate(today.getDate()-6);  return { from: toISO(f), to: t }; }
+  if (period === '30d') { const f = new Date(today); f.setDate(today.getDate()-29); return { from: toISO(f), to: t }; }
+  if (period === 'custom') return { from: customFrom, to: customTo };
+  return { from: t, to: t };
+}
+function daysBetween(from, to) {
+  const a = new Date(from + 'T00:00:00');
+  const b = new Date(to   + 'T00:00:00');
+  return Math.max(1, Math.round((b - a) / 86400000) + 1);
+}
+function fmtMoney(n) {
+  return '฿' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── PERIOD PICKER ──────────────────────────────────────────
+function setPeriod(p, btn) {
+  period = p;
+  document.querySelectorAll('.period-picker .period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  closePopover();
+  refreshAll();
+}
+function toggleCustomPopover(btn) {
+  const pop = document.getElementById('finDatePopover');
+  const isOpen = pop.classList.contains('open');
+  closePopover();
+  if (!isOpen) {
+    const t = toISO(new Date());
+    const fromEl = document.getElementById('finFromDate');
+    const toEl   = document.getElementById('finToDate');
+    if (!fromEl.value) fromEl.value = customFrom || t;
+    if (!toEl.value)   toEl.value   = customTo   || t;
+    pop.classList.add('open');
+    document.querySelectorAll('.period-picker .period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    period = 'custom';
+  }
+}
+function closePopover() { document.getElementById('finDatePopover').classList.remove('open'); }
+function applyPreset(days) {
+  const today = new Date(), from = new Date(today);
+  from.setDate(today.getDate() - (days - 1));
+  document.getElementById('finFromDate').value = toISO(from);
+  document.getElementById('finToDate').value   = toISO(today);
+}
+function applyCustomPeriod() {
+  const from = document.getElementById('finFromDate').value;
+  const to   = document.getElementById('finToDate').value;
+  if (!from || !to) { showToast('Select both From and To dates', true); return; }
+  if (from > to)    { showToast('From must be before To', true); return; }
+  customFrom = from; customTo = to; period = 'custom';
+  closePopover();
+  refreshAll();
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.date-popover-wrap')) closePopover();
+});
+
+// ── UPDATE PERIOD LABEL ────────────────────────────────────
+function updatePeriodLabel(from, to) {
+  const fmt = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  document.getElementById('periodLabel').textContent = `${fmt(from)} — ${fmt(to)}`;
+}
+
+// ── P&L DATA LOAD ──────────────────────────────────────────
+async function loadPL() {
+  document.getElementById('plSkeleton').style.display = '';
+  document.getElementById('plContent').style.display  = 'none';
+  document.getElementById('plError').style.display    = 'none';
+
+  const { from, to } = getDateRange();
+  updatePeriodLabel(from, to);
+
+  try {
+    // 1. Revenue: accounting_entries income/sales in period
+    const { data: incomeRows, error: incomeErr } = await window.supabase
+      .from('accounting_entries')
+      .select('amount')
+      .eq('entry_type', 'income')
+      .eq('category', 'sales')
+      .gte('entry_date', from)
+      .lte('entry_date', to);
+
+    if (incomeErr) throw incomeErr;
+    const revenue = (incomeRows || []).reduce((s, r) => s + Number(r.amount), 0);
+
+    // 2. COGS: BOM deductions × ingredient cost for served orders in period
+    // Use local-timezone midnight/end-of-day converted to UTC for correct Bangkok date boundaries
+    const cogsFrom = new Date(from + 'T00:00:00').toISOString();
+    const cogsTo   = new Date(to   + 'T23:59:59').toISOString();
+    const { data: ordersInPeriod, error: ordersErr } = await window.supabase
+      .from('orders')
+      .select('id')
+      .eq('status', 'served')
+      .gte('created_at', cogsFrom)
+      .lte('created_at', cogsTo);
+
+    if (ordersErr) throw ordersErr;
+
+    let cogs = 0;
+    const orderIds = (ordersInPeriod || []).map(o => o.id);
+
+    if (orderIds.length > 0) {
+      const { data: deductions, error: dedErr } = await window.supabase
+        .from('inventory_deductions')
+        .select('quantity_deducted, ingredient_id, ingredients(cost_per_unit)')
+        .in('order_id', orderIds);
+
+      if (dedErr) throw dedErr;
+
+      cogs = (deductions || []).reduce((s, d) => {
+        return s + (Number(d.quantity_deducted) || 0) * (Number(d.ingredients?.cost_per_unit) || 0);
+      }, 0);
+    }
+
+    // 3. Fixed costs: prorate each active fixed cost to selected period
+    const { data: fcRows, error: fcErr } = await window.supabase
+      .from('fixed_costs')
+      .select('*')
+      .eq('is_active', true)
+      .lte('effective_from', to)
+      .or(`effective_to.is.null,effective_to.gte.${from}`);
+
+    if (fcErr) throw fcErr;
+
+    const periodDays = daysBetween(from, to);
+    const proratedFCs = (fcRows || []).map(fc => {
+      const baseDays = fc.period_type === 'weekly' ? 7 : fc.period_type === 'yearly' ? 365 : 30;
+      return {
+        name:        fc.name,
+        amount:      Number(fc.amount) * (periodDays / baseDays),
+        raw_amount:  Number(fc.amount),
+        period_type: fc.period_type,
+      };
+    });
+    const totalFixed = proratedFCs.reduce((s, f) => s + f.amount, 0);
+
+    // 4. Compute P&L
+    const cm       = revenue - cogs;
+    const cmPct    = revenue > 0 ? (cm / revenue * 100) : 0;
+    const netIncome = cm - totalFixed;
+    const netPct   = revenue > 0 ? (netIncome / revenue * 100) : 0;
+
+    // 5. Render
+    document.getElementById('plRevenue').textContent   = fmtMoney(revenue);
+    document.getElementById('plCOGS').textContent      = fmtMoney(cogs);
+    document.getElementById('plCM').textContent        = fmtMoney(cm);
+    document.getElementById('plCMPct').textContent     = cmPct.toFixed(1) + '%';
+    document.getElementById('plTotalFixed').textContent = fmtMoney(totalFixed);
+
+    // Fixed cost rows
+    const fcContainer = document.getElementById('plFixedCostRows');
+    if (proratedFCs.length === 0) {
+      fcContainer.innerHTML = `<div class="pnl-row" style="color:var(--text-muted);font-style:italic;"><span>No active fixed costs</span><span class="pnl-val">฿0.00</span></div>`;
+    } else {
+      fcContainer.innerHTML = proratedFCs.map(fc =>
+        `<div class="pnl-row">
+          <span>${escHtml(fc.name)} <span style="font-size:11px;color:var(--text-muted);">(${fmtMoney(fc.raw_amount)}/${fc.period_type === 'monthly' ? 'mo' : fc.period_type === 'weekly' ? 'wk' : 'yr'})</span></span>
+          <span class="pnl-val">${fmtMoney(fc.amount)}</span>
+        </div>`
+      ).join('');
+    }
+
+    // Net income chip
+    const netChip = document.getElementById('plNetChip');
+    netChip.textContent = fmtMoney(netIncome);
+    netChip.className   = 'net-chip ' + (netIncome >= 0 ? 'net-positive' : 'net-negative');
+    document.getElementById('plNetPct').textContent = netPct.toFixed(1) + '%';
+
+    document.getElementById('plSkeleton').style.display = 'none';
+    document.getElementById('plContent').style.display  = '';
+
+  } catch (err) {
+    document.getElementById('plSkeleton').style.display = 'none';
+    document.getElementById('plError').style.display    = '';
+    document.getElementById('plErrorMsg').textContent   = 'Error: ' + (err.message || 'Unknown error');
+    showToast('Failed to load P&L: ' + (err.message || err), true);
+  }
+}
+
+// ── FIXED COSTS LIST ───────────────────────────────────────
+async function loadFixedCosts() {
+  document.getElementById('fcListSkeleton').style.display = '';
+  document.getElementById('fcList').style.display         = 'none';
+  document.getElementById('fcEmpty').style.display        = 'none';
+
+  const { data, error } = await window.supabase
+    .from('fixed_costs')
+    .select('*')
+    .order('name');
+
+  if (error) { showToast('Failed to load fixed costs: ' + error.message, true); return; }
+
+  fixedCosts = data || [];
+  renderFCList();
+}
+
+function renderFCList() {
+  const list = document.getElementById('fcList');
+  document.getElementById('fcListSkeleton').style.display = 'none';
+
+  if (!fixedCosts.length) {
+    document.getElementById('fcEmpty').style.display = '';
+    list.style.display = 'none';
+    return;
+  }
+
+  const periodLabel = { monthly: 'Monthly', weekly: 'Weekly', yearly: 'Yearly' };
+  list.innerHTML = fixedCosts.map(fc => `
+    <div class="fc-row">
+      <span class="fc-name">${escHtml(fc.name)}</span>
+      <span class="fc-detail">฿${Number(fc.amount).toLocaleString('en-US', {minimumFractionDigits:2})} / ${periodLabel[fc.period_type] || fc.period_type}</span>
+      <span class="fc-badge ${fc.is_active ? 'fc-active' : 'fc-inactive'}">${fc.is_active ? 'Active' : 'Inactive'}</span>
+      <div class="fc-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openFCModal('${fc.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteFC('${fc.id}', '${escHtml(fc.name).replace(/'/g, "\\'")}')">Del</button>
+      </div>
+    </div>`).join('');
+
+  list.style.display = '';
+  document.getElementById('fcEmpty').style.display = 'none';
+}
+
+// ── FIXED COST MODAL ───────────────────────────────────────
+function openFCModal(fcId) {
+  const isNew = !fcId;
+  document.getElementById('fcModalTitle').textContent = isNew ? 'Add Fixed Cost' : 'Edit Fixed Cost';
+  document.getElementById('fcId').value = fcId || '';
+  document.getElementById('fcModalMsg').className = 'msg';
+
+  if (isNew) {
+    document.getElementById('fcName').value          = '';
+    document.getElementById('fcAmount').value        = '';
+    document.getElementById('fcPeriod').value        = 'monthly';
+    document.getElementById('fcEffectiveFrom').value = toISO(new Date());
+    document.getElementById('fcEffectiveTo').value   = '';
+    document.getElementById('fcIsActive').checked    = true;
+  } else {
+    const fc = fixedCosts.find(f => f.id === fcId);
+    if (!fc) return;
+    document.getElementById('fcName').value          = fc.name;
+    document.getElementById('fcAmount').value        = fc.amount;
+    document.getElementById('fcPeriod').value        = fc.period_type;
+    document.getElementById('fcEffectiveFrom').value = fc.effective_from || '';
+    document.getElementById('fcEffectiveTo').value   = fc.effective_to   || '';
+    document.getElementById('fcIsActive').checked    = fc.is_active;
+  }
+  openModal('fcModal');
+}
+
+async function saveFC() {
+  const btn   = document.getElementById('fcSaveBtn');
+  const msgEl = document.getElementById('fcModalMsg');
+  const id    = document.getElementById('fcId').value || null;
+  const name   = document.getElementById('fcName').value.trim();
+  const amount = parseFloat(document.getElementById('fcAmount').value);
+  const period = document.getElementById('fcPeriod').value;
+  const from   = document.getElementById('fcEffectiveFrom').value;
+  const to     = document.getElementById('fcEffectiveTo').value || null;
+  const active = document.getElementById('fcIsActive').checked;
+
+  msgEl.className = 'msg';
+  if (!name)                    { msgEl.textContent = 'Name is required'; msgEl.className = 'msg error'; return; }
+  if (isNaN(amount) || amount < 0) { msgEl.textContent = 'Amount must be 0 or greater'; msgEl.className = 'msg error'; return; }
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const payload = {
+    name, amount, period_type: period,
+    effective_from: from || toISO(new Date()),
+    effective_to:   to,
+    is_active:      active,
+  };
+
+  let error;
+  if (!id) {
+    payload.created_by = currentUser.id;
+    ({ error } = await window.supabase.from('fixed_costs').insert(payload));
+  } else {
+    ({ error } = await window.supabase.from('fixed_costs').update(payload).eq('id', id));
+  }
+
+  btn.disabled = false; btn.textContent = 'Save';
+
+  if (error) { msgEl.textContent = 'Save failed: ' + error.message; msgEl.className = 'msg error'; return; }
+
+  closeModal('fcModal');
+  showToast(id ? 'Fixed cost updated' : 'Fixed cost added');
+  await loadFixedCosts();
+  await loadPL(); // Refresh P&L with updated fixed costs
+}
+
+async function deleteFC(fcId, name) {
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  const { error } = await window.supabase.from('fixed_costs').delete().eq('id', fcId);
+  if (error) { showToast('Delete failed: ' + error.message, true); return; }
+  showToast('Fixed cost deleted');
+  await loadFixedCosts();
+  await loadPL();
+}
+
+// ── REFRESH ALL ────────────────────────────────────────────
+async function refreshAll() {
+  await Promise.all([loadPL(), loadFixedCosts()]);
+}
+
+// ── INIT ───────────────────────────────────────────────────
+async function init() {
+  const profile = await Auth.require(['admin', 'manager']);
+  if (!profile) return;
+  currentUser = profile;
+  document.getElementById('sidebarUserInfo').textContent =
+    (profile.name || '') + (profile.email ? ' · ' + profile.email : '');
+
+  await refreshAll();
+
+  // Auto-refresh: re-run when new orders come in or accounting entries are recorded
+  let _finDebounce = null;
+  const _finRefresh = () => { clearTimeout(_finDebounce); _finDebounce = setTimeout(refreshAll, 800); };
+  window.supabase
+    .channel('finance_realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, _finRefresh)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'accounting_entries' }, _finRefresh)
+    .subscribe();
+
+  // Refresh when user switches back to this browser tab
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshAll();
+  });
+}
+
+init();
+</script>
+
+</body>
+</html>
