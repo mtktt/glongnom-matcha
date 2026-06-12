@@ -1630,3 +1630,188 @@ The admin system was originally designed desktop-first. Staff increasingly check
 | `admin/customers.html` | Phone media queries — form rows, loyalty display, ledger table |
 | `admin/purchase-orders.html` | **Bug fix** — rebuilt broken mobile line-item layout; phone media queries — column hiding on PO list & line-items tables |
 
+---
+
+---
+
+# Security Review & Hardening — Order Pricing, RLS, PII
+**Session Date:** 2026-06-12 / 2026-06-13
+**Scope:** Full code review of `index.html` + 13 `admin/` pages (with Alex code-reviewer), then a two-phase security fix: server-side order pricing authority, RLS lockdown, LINE-notify repair, repo sync, and Phase-2 hardening.
+
+---
+
+## Headline Problem — Client-Authoritative Pricing
+
+The customer app computed `subtotal`, `discount_amount`, `unit_price`, and `total_price` **in the browser** and inserted them directly into `orders` / `order_items` / `order_item_options` using the public anon key. Because the RLS insert policies were `with check (true)`, anyone could submit an order at any price (e.g. ฿0). Those client-set totals fed straight into:
+- `record_order_income` → the accounting ledger (revenue)
+- `accrue_loyalty_for_order` → `FLOOR(total_price/10)` loyalty points
+
+**Proven exploitable** by a live anon-key test (see Live Pentest below).
+
+---
+
+## Live Pentest (authorized, against production)
+
+| Test | Method | Result | Meaning |
+|---|---|---|---|
+| Forge ฿0 order | `POST /rest/v1/orders` with anon key, `total_price:0` | `201 Created` (ORD-1027) | **A1 confirmed** — price tampering works |
+| Delete that order | `DELETE` with anon key | `200`, 0 rows | Delete correctly blocked (good) |
+| Read all orders | `GET /rest/v1/orders` with anon key | `200`, real customer name/phone/address | **A7 found** — PII leak (anyone can read every order) |
+
+A7 traced to the manual `orders_read_own using(true)` SELECT policy added during the Phase 1A Bug #4 fix.
+
+---
+
+## Phase 1 Fix — Server-Side Pricing Authority
+
+| # | Deliverable | File |
+|---|---|---|
+| 1 | `create_order(p_payload jsonb)` RPC — recomputes ALL prices server-side from `menus` / `option_template_choices` / `promotions` / `shops`, writes orders+items+options in ONE transaction, returns authoritative total | `supabase/migrations/021_create_order_rpc.sql` |
+| 2 | RLS lockdown — drop the permissive `*_insert with check(true)` **and** the public `*_read using(true)` policies on orders/order_items/order_item_options/customers | `supabase/migrations/022_lockdown_order_rls.sql` |
+| 3 | `submitOrder()` rewired — sends only menu_ids/choice_ids/qty/notes/customer (NO prices), calls `supabase.rpc('create_order', …)`, shows server-returned total; added `friendlyOrderError()` | `index.html` |
+
+**Design principle:** the browser sends *what* the customer wants, never *how much* it costs. A tampered client has no price field to lie about.
+
+**Key properties of `create_order()`:**
+- `SECURITY DEFINER` → bypasses RLS to do the validated atomic write; the RPC becomes the only way to create an order.
+- Validates each option choice actually belongs to its menu (via `menu_option_templates`) — rejects hand-crafted payloads.
+- Replicates the client promo math exactly (item_discount %/fixed on base price; bundle = max(0, Σ first-occurrence unit prices − bundle_price)).
+- `GRANT EXECUTE … TO anon, authenticated`.
+
+**Side benefit:** the atomic write also eliminates the order-items Realtime race patched with a debounce in Phase 1B (items now always exist when the order row becomes visible).
+
+**Two-step rollout** (deliberate): run 021 (additive, safe) and verify ordering works, *then* run 022 (the lockdown). Never lock down before the RPC is proven, so there's always a working fallback.
+
+---
+
+## LINE Notification Repair
+
+After 021 went live, the LINE message showed correct item details but **฿0 total** — and 022 would have made it worse. Two bugs:
+
+| Bug | Cause | Fix |
+|---|---|---|
+| ฿0 total | Webhook `payload.record` is the row **as first inserted**; `create_order()` inserts the order with `total_price=0` then UPDATEs the real total later in the same transaction → snapshot is stale | Re-fetch the committed order fresh from the DB |
+| Empty item list (after 022) | Function read `order_items` with the **anon key**; 022 removes anon read access | Switch reads to `SUPABASE_SERVICE_KEY` (service role bypasses RLS) |
+
+Both fixed in `netlify/functions/line-notify.js` — now one query fetches order + items + options with the service key, with a fallback to the webhook snapshot.
+
+---
+
+## Deploy & Repo Discovery
+
+While trying to deploy the LINE fix, found the git repo was **badly out of sync**: it tracked only `index.html` + `assets/` + a few stale files. The entire real app (`netlify/`, `admin/`, `css/`, `js/`, `supabase/`, `login.html`, etc.) was **untracked, never committed**.
+
+- **Deploy method confirmed:** manual **drag-and-drop** to Netlify (not git auto-deploy). Pushing to GitHub does NOT update the live site.
+- **Action:** committed the full project (53 files) to `github.com/mtktt/Glongnom-Matcha.git`, added a `.gitignore`. Repo now reflects reality and serves as real backup.
+
+---
+
+## Phase 2 — Security Hardening
+
+| # | Finding | Fix | File |
+|---|---|---|---|
+| A3 | Search text injected raw into PostgREST `.or()` filter (a `,` or `()` breaks the query / leaks parse errors) | Wrap each ilike pattern in double quotes + escape `\` `"` so reserved chars are literal | `admin/orders.html` |
+| A4 | Managers could open User Mgmt and *appear* to change roles, but RLS silently no-op'd → UI falsely showed "Role updated" | Gate Change Role / Deactivate to admins only; add `.select()` so a blocked write reports "permission denied" not false success | `admin/users.html` |
+| A5 | `customers_update` was `using(true)` — anyone with the anon key could overwrite any customer's name/address/notes | Replace with `customers_staff_update` (admin/manager/cashier); RPC + loyalty fns bypass RLS so ordering is unaffected | `supabase/migrations/023_phase2_security_hardening.sql` |
+| D2 | `receive_po_items` / `record_purchase_expense` callable by any authenticated role | Add `current_user_role() IN ('admin','manager')` guards (bodies reproduced verbatim from 013/016) | `023_phase2_security_hardening.sql` |
+
+**D2 deliberate exception:** `record_order_income` is left UNguarded — `markPaid()` runs on the all-roles orders page, and the function is idempotent over the order's own (now server-authoritative) total.
+
+---
+
+## Verifications (live, against production)
+
+| Check | Result |
+|---|---|
+| A3 quoted `.or()` syntax valid + comma treated as literal | ✅ old unquoted comma → HTTP 400 parse error; new quoted → HTTP 200 literal |
+| A1 insert hole closed (after 022) | ✅ (lockdown applied; direct anon insert now RLS-denied) |
+| A5 anon can't tamper customers (after 023) | ✅ anon PATCH → HTTP 200, 0 rows changed |
+| A5 didn't break returning-customer ordering | ✅ RPC order for existing phone → ORD-1031, ฿74, upsert UPDATE path works |
+
+---
+
+## Database Migrations (Run Order)
+
+| File | Purpose | Status |
+|---|---|---|
+| `021_create_order_rpc.sql` | Server-side `create_order()` pricing RPC | Applied |
+| `022_lockdown_order_rls.sql` | Drop permissive insert + public-read policies (close A1 + A7) | Applied |
+| `023_phase2_security_hardening.sql` | A5 customer-update lockdown + D2 PO RPC role guards | Applied |
+
+---
+
+## Files Changed This Session
+
+| File | Type of Change |
+|---|---|
+| `supabase/migrations/021_create_order_rpc.sql` | New — server-side order pricing RPC |
+| `supabase/migrations/022_lockdown_order_rls.sql` | New — RLS lockdown (insert + read) |
+| `supabase/migrations/023_phase2_security_hardening.sql` | New — A5 + D2 hardening |
+| `index.html` | `submitOrder()` rewired to RPC; `friendlyOrderError()` |
+| `netlify/functions/line-notify.js` | Re-fetch committed order with service-role key (฿0 total + post-022 read fix) |
+| `admin/orders.html` | A3 — escape search input for `.or()` filter |
+| `admin/users.html` | A4 — admin-only write gating + `.select()` false-success backstop |
+| `.gitignore` | New — node_modules / .env / .netlify |
+| *(repo sync)* | Committed full project (53 files) to GitHub for the first time |
+
+---
+
+## Remaining Review Backlog (not yet done)
+
+- **Audit all `using(true)` policies** — found the orders PII leak by accident; sweep `inventory`, `suppliers`, `promotions`, etc.
+- **Phase 3 polish:** B2 dynamic category tabs (vs hardcoded), B4 image `onerror` fallback, B6 search debounce, D3 surface silent BOM/loyalty failures.
+- **Phase 4 maintainability:** C3 de-duplicate sidebar/auth boilerplate across 13 files, C4 extract shared unit-conversion helpers.
+
+---
+
+---
+
+# Order Notifications — LINE → Telegram Migration
+**Session Date:** 2026-06-13
+**Scope:** Add a Telegram notification channel to replace LINE for new-order alerts, to escape the LINE free-tier push-message cap.
+
+---
+
+## Why
+
+LINE Messaging API free tier ≈ **500 push messages/month** (~16 orders/day, halved when notifying multiple recipients) — the first bottleneck as order volume grows. **Telegram Bot API is free with no monthly message cap** (rate limit only ~30 msg/sec), so it removes that ceiling entirely. Same webhook flow, only the destination changes.
+
+```
+Supabase Webhook (INSERT orders) → Netlify Function → Telegram Bot API (group chat)
+```
+
+## What was built
+
+| # | Item | Detail |
+|---|---|---|
+| 1 | `netlify/functions/telegram-notify.js` | New function mirroring `line-notify.js`: verifies `x-webhook-secret`, re-fetches the committed order + items with the **service-role key** (handles the create_order ฿0-snapshot + post-022 RLS lockdown), sends to Telegram |
+| 2 | `netlify.toml` | Registered `[functions."telegram-notify"]` (esbuild bundler) |
+
+**Design choices:**
+- **Plain text** message (no `parse_mode`) — arbitrary customer names/notes never need Telegram Markdown/HTML escaping.
+- **Group chat** target — all staff see one feed; `TELEGRAM_CHAT_ID` supports comma-separated ids (e.g. group + owner DM).
+- `line-notify.js` **kept intact as a backup** — rollback is just repointing the Supabase webhook.
+
+## New Environment Variables (Netlify)
+
+| Variable | Value |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather |
+| `TELEGRAM_CHAT_ID` | Group chat id (negative number, e.g. `-100...`); comma-separated for multiple |
+
+(`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `WEBHOOK_SECRET` are reused.)
+
+## Activation Steps (manual, owner-side)
+
+1. @BotFather → `/newbot` → get token
+2. Create group, add bot, get chat id (e.g. via @getidsbot, then remove it)
+3. Set the two env vars in Netlify
+4. **Deploy** (drag-and-drop) so the function exists, *then* repoint the Supabase `orders` webhook URL from `/line-notify` → `/telegram-notify` (keep the `x-webhook-secret` header)
+
+## Files Changed This Session
+
+| File | Type of Change |
+|---|---|
+| `netlify/functions/telegram-notify.js` | New — Telegram order-notification function |
+| `netlify.toml` | Registered telegram-notify function |
+
